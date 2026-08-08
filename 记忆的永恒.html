@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>Raycasting 3D迷宫</title>
+<style>
+body{background:#111;display:flex;justify-content:center;margin:0;padding-top:20px;}
+canvas{border:2px solid #666;}
+.info{color:#fff;font-family:Arial;margin-top:10px;text-align:center}
+</style>
+</head>
+<body>
+<div>
+<canvas id="game" width="800" height="600"></canvas>
+<div class="info">W前进 S后退 | A左转 D右转 | Q左平移 E右平移 | ESC关闭</div>
+</div>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+const PI = Math.PI;
+
+// 和C++完全一致地图 9行16列
+const map = [
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,0,1,1,1,1,1,0,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,1,0,1,0,1],
+    [1,0,1,0,1,1,1,1,1,1,0,1,0,1,0,1],
+    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,1,0,1,0,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+];
+
+//玩家参数
+let playerX = 2.0;
+let playerY = 2.0;
+let viewAngle = 0.0;
+const FOV = PI / 4.0;
+const moveSpeed = 0.07;
+const rotateSpeed = 0.04;
+const rayStep = 0.02;
+
+//按键状态
+const key = {};
+document.addEventListener("keydown",e=>{key[e.key.toUpperCase()]=true; if(e.key=="Escape")canvas.remove();});
+document.addEventListener("keyup",e=>{key[e.key.toUpperCase()]=false;});
+
+//碰撞检测（和C++逻辑一致）
+function CanMove(x,y){
+    let mx = Math.floor(x);
+    let my = Math.floor(y);
+    if (mx < 1 || mx >=15 || my <1 || my >=8) return false;
+    return map[my][mx] === 0;
+}
+
+function loop(){
+    //清屏
+    ctx.fillStyle="#000";
+    ctx.fillRect(0,0,800,600);
+
+    //地板 天花板
+    ctx.fillStyle="rgb(180,160,60)";
+    ctx.fillRect(0,300,800,300);
+    ctx.fillStyle="rgb(250,230,120)";
+    ctx.fillRect(0,0,800,300);
+
+    //逐列射线
+    for(let screenX=0;screenX<800;screenX++){
+        let rayAngle = viewAngle - FOV/2 + screenX/800*FOV;
+        let rx = playerX;
+        let ry = playerY;
+        let dirX = Math.cos(rayAngle);
+        let dirY = Math.sin(rayAngle);
+        let hitWall = false;
+        let wallSide = 0;
+
+        while(!hitWall){
+            rx += dirX * rayStep;
+            ry += dirY * rayStep;
+            let mx = Math.floor(rx);
+            let my = Math.floor(ry);
+            if(mx<0||mx>=16||my<0||my>=9){
+                hitWall=true;break;
+            }
+            if(map[my][mx]===1){
+                hitWall=true;
+                let modX = rx%1;
+                let modY = ry%1;
+                wallSide = (Math.abs(modX-0.5)>Math.abs(modY-0.5)) ? 0 :1;
+            }
+        }
+
+        //鱼眼校正
+        let rawDist = Math.hypot(rx-playerX, ry-playerY);
+        let correctDist = rawDist * Math.cos(rayAngle-viewAngle);
+        if(correctDist<0.01) correctDist=0.01;
+        let lineHeight = 300.0 / correctDist;
+        if(lineHeight>300) lineHeight=300;
+
+        //墙面颜色
+        let wallColor;
+        if(wallSide===0) wallColor="rgb(255,210,0)";
+        else wallColor="rgb(180,145,0)";
+        ctx.strokeStyle=wallColor;
+        ctx.beginPath();
+        ctx.moveTo(screenX, 300-lineHeight);
+        ctx.lineTo(screenX, 300+lineHeight);
+        ctx.stroke();
+    }
+
+    //移动向量
+    let forwardX = Math.cos(viewAngle)*moveSpeed;
+    let forwardY = Math.sin(viewAngle)*moveSpeed;
+    let rightX = Math.cos(viewAngle+PI/2)*moveSpeed;
+    let rightY = Math.sin(viewAngle+PI/2)*moveSpeed;
+
+    //W前进
+    if(key["W"]){
+        if(CanMove(playerX+forwardX, playerY)) playerX+=forwardX;
+        if(CanMove(playerX, playerY+forwardY)) playerY+=forwardY;
+    }
+    //S后退
+    if(key["S"]){
+        if(CanMove(playerX-forwardX, playerY)) playerX-=forwardX;
+        if(CanMove(playerX, playerY-forwardY)) playerY-=forwardY;
+    }
+    //Q左横移
+    if(key["D"]){
+        if(CanMove(playerX+rightX, playerY)) playerX+=rightX;
+        if(CanMove(playerX, playerY+rightY)) playerY+=rightY;
+    }
+    //E右横移
+    if(key["A"]){
+        if(CanMove(playerX-rightX, playerY)) playerX-=rightX;
+        if(CanMove(playerX, playerY-rightY)) playerY-=rightY;
+    }
+    //转向
+    if(key["Q"]) viewAngle -= rotateSpeed;
+    if(key["E"]) viewAngle += rotateSpeed;
+
+    requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
