@@ -12,7 +12,7 @@ canvas{border:2px solid #666;}
 <body>
 <div>
 <canvas id="game" width="800" height="600"></canvas>
-<div class="info">W前进 S后退 | A左转 D右转 | Q左平移 E右平移 | ESC关闭</div>
+<div class="info">W前进 S后退 | Q左转 E右转 | A左平移 D右平移 | ESC关闭</div>
 </div>
 
 <script>
@@ -126,12 +126,12 @@ function loop(){
         if(CanMove(playerX-forwardX, playerY)) playerX-=forwardX;
         if(CanMove(playerX, playerY-forwardY)) playerY-=forwardY;
     }
-    //Q左横移
+    //Q
     if(key["D"]){
         if(CanMove(playerX+rightX, playerY)) playerX+=rightX;
         if(CanMove(playerX, playerY+rightY)) playerY+=rightY;
     }
-    //E右横移
+    //E
     if(key["A"]){
         if(CanMove(playerX-rightX, playerY)) playerX-=rightX;
         if(CanMove(playerX, playerY-rightY)) playerY-=rightY;
