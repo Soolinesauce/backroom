@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>Raycasting 3D迷宫 </title>
+<title>Raycasting 3D迷宫 无限地图+笑魇</title>
 <style>
 body{background:#111;display:flex;justify-content:center;margin:0;padding-top:20px;}
 canvas{border:2px solid #666;}
@@ -12,26 +12,36 @@ canvas{border:2px solid #666;}
 <body>
 <div>
 <canvas id="game" width="800" height="600"></canvas>
-<div class="info">yyishappy14提供技术支持 | W前进 S后退 | Q左转 E右转 | A左平移 D右平移 | ESC关闭|Sooline sauce出品</div>
+<div class="info">W前进 S后退 | Q左转 E右转 | A左平移 D右平移 | ESC关闭 | Sooline sauce	出品</div>
 </div>
+
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const PI = Math.PI;
-// 基础迷宫单元 9行16列（无限平铺单元）
-const MAP_W = 16;
-const MAP_H = 9;
+
+// 基础迷宫单元 16行24列（无限平铺单元）
+const MAP_W = 24;
+const MAP_H = 16;
 const map = [
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,1,1,1,1,0,1,1,1,1,1,0,1,0,1],
-    [1,0,1,0,0,0,0,0,0,0,0,1,0,1,0,1],
-    [1,0,1,0,1,1,1,1,1,1,0,1,0,1,0,1],
-    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
-    [1,0,1,1,1,1,1,1,0,1,0,1,1,1,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1],
+    [1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,0,0,1],
+    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1],
+    [1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1],
+    [1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,0,0,1],
+    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
+    [1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,0,1],
+    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
 ];
+
 //玩家参数
 let playerX = 2.0;
 let playerY = 2.0;
@@ -40,48 +50,95 @@ const FOV = PI / 4.0;
 const moveSpeed = 0.07;
 const rotateSpeed = 0.04;
 const rayStep = 0.02;
+
+// 玩家血量系统
+let playerHP = 100;
+const monsterDamage = 50;
+let isDead = false;
+let deathTimer = 0;
+const respawnWaitTime = 30000; //30秒
+
 //怪物数组 多只笑魇怪物
 const monsters = [
-    { x: 12, y: 7, speed: 0.03, size: 0.6 },
-    { x: 4, y: 3, speed: 0.025, size: 0.6 }
+    { x: 18, y: 13, speed: 0.03, size: 0.6 },
+    { x: 5, y: 10, speed: 0.025, size: 0.6 },
+    { x: 20, y: 5, speed: 0.028, size: 0.6 },
+    { x: 8, y: 6, speed: 0.022, size: 0.6 }
 ];
+const chaseRange = 5; //小于5格开始追杀
+
 //按键状态
 const key = {};
 document.addEventListener("keydown",e=>{
     key[e.key.toUpperCase()]=true;
     if(e.key=="Escape") canvas.remove();
+    //死亡状态按空格重生
+    if(isDead && e.key === " " && Date.now() - deathTimer > respawnWaitTime){
+        respawnPlayer();
+    }
 });
 document.addEventListener("keyup",e=>{key[e.key.toUpperCase()]=false;});
+
+//重生函数
+function respawnPlayer(){
+    playerX = 2.0;
+    playerY = 2.0;
+    viewAngle = 0;
+    playerHP = 100;
+    isDead = false;
+    //怪物重置位置
+    monsters[0].x=18;monsters[0].y=13;
+    monsters[1].x=5;monsters[1].y=10;
+    monsters[2].x=20;monsters[2].y=5;
+    monsters[3].x=8;monsters[3].y=6;
+}
+
 // 无限地图取模，获取任意坐标地块
 function GetTile(x, y) {
     let mx = Math.floor(x);
     let my = Math.floor(y);
-    // 坐标取模实现无限循环
     mx = (mx % MAP_W + MAP_W) % MAP_W;
     my = (my % MAP_H + MAP_H) % MAP_H;
     return map[my][mx];
 }
+
 // 碰撞检测（适配无限地图）
 function CanMove(x,y){
     return GetTile(x, y) === 0;
 }
-// 更新怪物AI：追逐玩家
+
+// 更新怪物AI：距离小于5格才追逐玩家
 function UpdateMonsters() {
     for(let m of monsters) {
-        // 玩家与怪物方向向量
         let dx = playerX - m.x;
         let dy = playerY - m.y;
         let dist = Math.hypot(dx, dy);
-        if(dist < 0.1) continue;
+
+        // 距离超过5格，不移动
+        if(dist > chaseRange) continue;
+        if(dist < 0.25){
+            //怪物接触玩家，扣血
+            if(!isDead){
+                playerHP -= monsterDamage;
+                if(playerHP <= 0){
+                    playerHP = 0;
+                    isDead = true;
+                    deathTimer = Date.now();
+                }
+            }
+            continue;
+        }
+
         let dirX = dx / dist;
         let dirY = dy / dist;
-        // 分步移动，检测碰撞
+
         let newX = m.x + dirX * m.speed;
         let newY = m.y + dirY * m.speed;
         if(CanMove(newX, m.y)) m.x = newX;
         if(CanMove(m.x, newY)) m.y = newY;
     }
 }
+
 // 射线检测两点之间是否有墙体遮挡（怪物遮挡判断）
 function IsBlocked(x1,y1,x2,y2) {
     let dist = Math.hypot(x2-x1, y2-y1);
@@ -95,13 +152,15 @@ function IsBlocked(x1,y1,x2,y2) {
     }
     return false;
 }
+
 function loop(){
     // 清屏
     ctx.fillStyle="#000";
     ctx.fillRect(0,0,800,600);
-    // 存储每一列墙体深度，用于怪物遮挡（墙体在前，怪物在后）
+
     let wallDepth = new Array(800).fill(9999);
-    // 逐列投射墙体射线（无限地图）
+
+    // 逐列投射墙体射线（无限地图，无雾化，加强阴影）
     for(let screenX=0;screenX<800;screenX++){
         let rayAngle = viewAngle - FOV/2 + screenX/800*FOV;
         let rx = playerX;
@@ -111,6 +170,7 @@ function loop(){
         let hitWall = false;
         let wallSide = 0;
         let hitDist = 9999;
+
         while(!hitWall){
             rx += dirX * rayStep;
             ry += dirY * rayStep;
@@ -122,52 +182,64 @@ function loop(){
                 wallSide = (Math.abs(modX-0.5)>Math.abs(modY-0.5)) ? 0 :1;
             }
         }
-        // 鱼眼校正
+
         let correctDist = hitDist * Math.cos(rayAngle-viewAngle);
         if(correctDist<0.01) correctDist=0.01;
         wallDepth[screenX] = correctDist;
         let lineHeight = 300.0 / correctDist;
         if(lineHeight>300) lineHeight=300;
-        // 绘制黄色天花板地板
-        // 天花板：上半部分
-        ctx.fillStyle = "#ffdd77";
+
+        // 后室阴暗配色，不使用距离雾化
+        let baseR = 90;
+        let baseG = 75;
+        let baseB = 50;
+
+        // 天花板
+        ctx.fillStyle = `rgb(${Math.floor(baseR*0.55)},${Math.floor(baseG*0.55)},${Math.floor(baseB*0.55)})`;
         ctx.fillRect(screenX, 0, 1, 300 - lineHeight);
-        // 地板：下半部分
-        ctx.fillStyle = "#ffdd77";
+        // 地板
+        ctx.fillStyle = `rgb(${Math.floor(baseR*0.4)},${Math.floor(baseG*0.4)},${Math.floor(baseB*0.4)})`;
         ctx.fillRect(screenX, 300 + lineHeight, 1, 300 - lineHeight);
-        // 墙面颜色
-        let wallColor;
-        if(wallSide===0) wallColor="rgb(255,210,0)";
-        else wallColor="rgb(180,145,0)";
-        ctx.strokeStyle=wallColor;
+
+        // 墙面明暗：近墙亮，远墙暗，但不做彩色雾化
+        let shade = Math.max(0.08, 1.0 - correctDist * 0.085);
+        let r,g,b;
+        if(wallSide===0){
+            r = Math.floor(baseR * shade);
+            g = Math.floor(baseG * shade);
+            b = Math.floor(baseB * shade);
+        }else{
+            r = Math.floor(baseR * shade * 0.65);
+            g = Math.floor(baseG * shade * 0.65);
+            b = Math.floor(baseB * shade * 0.65);
+        }
+        ctx.strokeStyle=`rgb(${r},${g},${b})`;
         ctx.beginPath();
         ctx.moveTo(screenX, 300-lineHeight);
         ctx.lineTo(screenX, 300+lineHeight);
         ctx.stroke();
     }
-    // 更新怪物AI追逐逻辑
-    UpdateMonsters();
+
+    if(!isDead){
+        UpdateMonsters();
+    }
+
     // 渲染所有笑魇怪物
     for(let m of monsters){
-        // 怪物相对玩家坐标
         let dx = m.x - playerX;
         let dy = m.y - playerY;
         let monsterDist = Math.hypot(dx, dy);
         if(monsterDist < 0.1) continue;
-        // 怪物朝向角度
+
         let monsterAngle = Math.atan2(dy, dx);
-        // 怪物与相机视角差值
         let angleDiff = monsterAngle - viewAngle;
-        // 角度循环修正 -PI ~ PI
         while(angleDiff > PI) angleDiff -= 2*PI;
         while(angleDiff < -PI) angleDiff += 2*PI;
-        // 超出视野则不绘制
+
         if(Math.abs(angleDiff) > FOV/2 + 0.1) continue;
-        // 墙体挡住怪物，跳过渲染
         if(IsBlocked(playerX, playerY, m.x, m.y)) continue;
-        // 屏幕水平位置
+
         let screenX = 400 + (angleDiff / FOV) * 400;
-        // 校正距离计算怪物高度
         let correctMDist = monsterDist * Math.cos(angleDiff);
         let monsterHeight = 300 / correctMDist * m.size;
         let topY = 300 - monsterHeight;
@@ -175,28 +247,25 @@ function loop(){
         let width = monsterHeight * 0.7;
         let cx = screenX;
         let cy = (topY + botY) / 2;
-        // 墙体深度遮挡：怪物比墙体远才绘制
+
         let col = Math.floor(screenX);
         if(col >=0 && col <800 && wallDepth[col] < correctMDist) continue;
-        // 绘制笑魇怪物
-        // 黑色底色脸
+
+        // 绘制笑魇
         ctx.fillStyle = "#000000";
         ctx.fillRect(cx - width/2, topY, width, botY - topY);
-        // 白色描边
         ctx.strokeStyle="#ffffff";
         ctx.lineWidth = 2;
         ctx.strokeRect(cx - width/2, topY, width, botY - topY);
         ctx.lineWidth = 1;
-        // 眼睛（细长白色竖眼）
+
         let eyeW = width * 0.18;
         let eyeH = monsterHeight * 0.22;
         let eyeY = cy - monsterHeight * 0.12;
-        // 左眼
         ctx.fillStyle="#fff";
         ctx.fillRect(cx - width*0.28, eyeY, eyeW, eyeH);
-        // 右眼
         ctx.fillRect(cx + width*0.10, eyeY, eyeW, eyeH);
-        // 诡异宽嘴锯齿笑容
+
         ctx.beginPath();
         ctx.moveTo(cx - width*0.35, cy + monsterHeight*0.15);
         ctx.lineTo(cx - width*0.22, cy + monsterHeight*0.05);
@@ -208,30 +277,60 @@ function loop(){
         ctx.strokeStyle="#ffffff";
         ctx.stroke();
     }
-    // 玩家移动向量
-    let forwardX = Math.cos(viewAngle)*moveSpeed;
-    let forwardY = Math.sin(viewAngle)*moveSpeed;
-    let rightX = Math.cos(viewAngle+PI/2)*moveSpeed;
-    let rightY = Math.sin(viewAngle+PI/2)*moveSpeed;
-    // W前进 S后退
-    if(key["W"]){
-        if(CanMove(playerX+forwardX, playerY)) playerX+=forwardX;
-        if(CanMove(playerX, playerY+forwardY)) playerY+=forwardY;
+
+    // UI 血量显示
+    ctx.fillStyle="#ff3333";
+    ctx.font="bold 20px Arial";
+    ctx.fillText("HP: "+playerHP,20,30);
+
+    // 死亡画面渲染
+    if(isDead){
+        let passed = Date.now() - deathTimer;
+        let remain = Math.max(0, Math.ceil((respawnWaitTime - passed)/1000));
+        ctx.fillStyle="rgba(0,0,0,0.75)";
+        ctx.fillRect(0,0,800,600);
+
+        ctx.fillStyle="#990000";
+        ctx.font="bold 60px Arial";
+        ctx.textAlign="center";
+        ctx.fillText("您已死亡",400,260);
+
+        ctx.font="24px Arial";
+        if(remain>0){
+            ctx.fillText(`等待复活：${remain}秒`,400,310);
+        }else{
+            ctx.fillText("按下空格键重新开始游戏",400,310);
+        }
+        ctx.textAlign="left";
     }
-    if(key["S"]){
-        if(CanMove(playerX-forwardX, playerY)) playerX-=forwardX;
-        if(CanMove(playerX, playerY-forwardY)) playerY-=forwardY;
+
+    //玩家移动
+    if(!isDead){
+        let forwardX = Math.cos(viewAngle)*moveSpeed;
+        let forwardY = Math.sin(viewAngle)*moveSpeed;
+        let rightX = Math.cos(viewAngle+PI/2)*moveSpeed;
+        let rightY = Math.sin(viewAngle+PI/2)*moveSpeed;
+
+        if(key["W"]){
+            if(CanMove(playerX+forwardX, playerY)) playerX+=forwardX;
+            if(CanMove(playerX, playerY+forwardY)) playerY+=forwardY;
+        }
+        if(key["S"]){
+            if(CanMove(playerX-forwardX, playerY)) playerX-=forwardX;
+            if(CanMove(playerX, playerY-forwardY)) playerY-=forwardY;
+        }
+        if(key["A"]){
+            if(CanMove(playerX-rightX, playerY)) playerX-=rightX;
+            if(CanMove(playerX, playerY-rightY)) playerY-=rightY;
+        }
+        if(key["D"]){
+            if(CanMove(playerX+rightX, playerY)) playerX+=rightX;
+            if(CanMove(playerX, playerY+rightY)) playerY+=rightY;
+        }
+        if(key["Q"]) viewAngle -= rotateSpeed;
+        if(key["E"]) viewAngle += rotateSpeed;
     }
-    if(key["A"]){
-        if(CanMove(playerX-rightX, playerY)) playerX-=rightX;
-        if(CanMove(playerX, playerY-rightY)) playerY-=rightY;
-    }
-    if(key["D"]){
-        if(CanMove(playerX+rightX, playerY)) playerX+=rightX;
-        if(CanMove(playerX, playerY+rightY)) playerY+=rightY;
-    }
-    if(key["Q"]) viewAngle -= rotateSpeed;
-    if(key["E"]) viewAngle += rotateSpeed;
+
     requestAnimationFrame(loop);
 }
 loop();
