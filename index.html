@@ -74,15 +74,43 @@ let isDead = false;
 let deathTimer = 0;
 const respawnWaitTime = 15000; // 修改复活时间15秒
 
-//怪物数组 多只笑魇怪物
-const monsters = [
-    { x: 22, y: 26, speed: 0.03, size: 0.6 },
-    { x: 8, y: 14, speed: 0.025, size: 0.6 },
-    { x: 26, y: 7, speed: 0.028, size: 0.6 },
-    { x: 12, y: 18, speed: 0.022, size: 0.6 },
-    { x: 16, y: 6, speed:0.026, size:0.6}
-];
+//怪物数组
+const monsters = [];
+const MAX_MONSTER = 25; // 最大怪物上限，防止卡顿
 const chaseRange = 5; //小于5格开始追杀
+
+// 随机生成一个合法空地坐标（不会卡在墙里）
+function SpawnRandomMonster() {
+    let attempts = 0;
+    const maxTry = 800;
+    while(attempts < maxTry){
+        let mx = 1 + Math.floor(Math.random()*(MAP_W-2));
+        let my = 1 + Math.floor(Math.random()*(MAP_H-2));
+        if(map[my][mx] === 0){
+            // 轻微偏移，不在格子正中心
+            let ox = mx + 0.2 + Math.random()*0.6;
+            let oy = my + 0.2 + Math.random()*0.6;
+            // 距离玩家出生点不能太近，防止刚复活直接贴脸
+            let distSpawn = Math.hypot(ox - 2.0, oy - 2.0);
+            if(distSpawn > 4.5){
+                let speed = 0.022 + Math.random()*0.008;
+                monsters.push({
+                    x: ox,
+                    y: oy,
+                    speed: speed,
+                    size: 0.6
+                });
+                return;
+            }
+        }
+        attempts++;
+    }
+}
+
+//初始生成5只怪物
+for(let i=0;i<5;i++){
+    SpawnRandomMonster();
+}
 
 //按键状态
 const key = {};
@@ -103,12 +131,10 @@ function respawnPlayer(){
     viewAngle = 0;
     playerHP = 100;
     isDead = false;
-    //怪物重置位置
-    monsters[0].x=22;monsters[0].y=26;
-    monsters[1].x=8;monsters[1].y=14;
-    monsters[2].x=26;monsters[2].y=7;
-    monsters[3].x=12;monsters[3].y=18;
-    monsters[4].x=16;monsters[4].y=6;
+    // 每次复活，新增一只怪物（不超过上限）
+    if(monsters.length < MAX_MONSTER){
+        SpawnRandomMonster();
+    }
 }
 
 // 无限地图取模，获取任意坐标地块
@@ -301,10 +327,12 @@ function loop(){
         ctx.stroke();
     }
 
-    // UI 血量显示
+    // UI 血量+当前怪物数量显示
     ctx.fillStyle="#ff3333";
     ctx.font="bold 20px Arial";
     ctx.fillText("HP: "+playerHP,20,30);
+    ctx.fillStyle="#ffaa00";
+    ctx.fillText("怪物数量: "+monsters.length,20,55);
 
     // 死亡画面【血红色主题】
     if(isDead){
@@ -322,9 +350,11 @@ function loop(){
         if(remain>0){
             ctx.fillStyle="#dd3333";
             ctx.fillText(`等待复活：${remain}秒`,400,310);
+            ctx.fillText(`下次复活将新增1只怪物！`,400,350);
         }else{
             ctx.fillStyle="#ff5555";
             ctx.fillText("按下空格键重新开始游戏",400,310);
+            ctx.fillText(`复活后怪物总数+1`,400,350);
         }
         ctx.textAlign="left";
     }
