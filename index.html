@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <title>Raycasting 3D迷宫 无限地图+笑魇</title>
 <style>
-body{background:#111;display:flex;justify-content:center;margin:0;padding-top:20px;}
-canvas{border:2px solid #666;}
-.info{color:#fff;font-family:Arial;margin-top:10px;text-align:center}
+body{background:#0a0a0a;display:flex;justify-content:center;margin:0;padding-top:20px;}
+canvas{border:2px solid #444;}
+.info{color:#dddddd;font-family:Arial;margin-top:10px;text-align:center;font-size:15px}
 </style>
 </head>
 <body>
@@ -20,26 +20,42 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const PI = Math.PI;
 
-// 基础迷宫单元 16行24列（无限平铺单元）
-const MAP_W = 24;
-const MAP_H = 16;
+// 扩大基础迷宫单元 32行32列（无限平铺单元）
+const MAP_W = 32;
+const MAP_H = 32;
 const map = [
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1],
-    [1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1],
-    [1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,0,0,1],
-    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
-    [1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,0,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,0,1],
-    [1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,1,0,0,1],
-    [1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,0,0,1],
-    [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,1],
-    [1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,0,1],
-    [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
+[1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
+[1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1],
+[1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+[1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
+[1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
+[1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1],
+[1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+[1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
+[1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
+[1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1],
+[1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+[1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
+[1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
+[1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1],
+[1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+[1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
+[1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
+[1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1],
+[1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
+[1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
+[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
 ];
 
 //玩家参数
@@ -56,14 +72,15 @@ let playerHP = 100;
 const monsterDamage = 50;
 let isDead = false;
 let deathTimer = 0;
-const respawnWaitTime = 30000; //30秒
+const respawnWaitTime = 15000; // 修改复活时间15秒
 
 //怪物数组 多只笑魇怪物
 const monsters = [
-    { x: 18, y: 13, speed: 0.03, size: 0.6 },
-    { x: 5, y: 10, speed: 0.025, size: 0.6 },
-    { x: 20, y: 5, speed: 0.028, size: 0.6 },
-    { x: 8, y: 6, speed: 0.022, size: 0.6 }
+    { x: 22, y: 26, speed: 0.03, size: 0.6 },
+    { x: 8, y: 14, speed: 0.025, size: 0.6 },
+    { x: 26, y: 7, speed: 0.028, size: 0.6 },
+    { x: 12, y: 18, speed: 0.022, size: 0.6 },
+    { x: 16, y: 6, speed:0.026, size:0.6}
 ];
 const chaseRange = 5; //小于5格开始追杀
 
@@ -87,10 +104,11 @@ function respawnPlayer(){
     playerHP = 100;
     isDead = false;
     //怪物重置位置
-    monsters[0].x=18;monsters[0].y=13;
-    monsters[1].x=5;monsters[1].y=10;
-    monsters[2].x=20;monsters[2].y=5;
-    monsters[3].x=8;monsters[3].y=6;
+    monsters[0].x=22;monsters[0].y=26;
+    monsters[1].x=8;monsters[1].y=14;
+    monsters[2].x=26;monsters[2].y=7;
+    monsters[3].x=12;monsters[3].y=18;
+    monsters[4].x=16;monsters[4].y=6;
 }
 
 // 无限地图取模，获取任意坐标地块
@@ -160,7 +178,7 @@ function loop(){
 
     let wallDepth = new Array(800).fill(9999);
 
-    // 逐列投射墙体射线（无限地图，无雾化，加强阴影）
+    // 逐列投射墙体射线，黄色墙壁配色，后室风格
     for(let screenX=0;screenX<800;screenX++){
         let rayAngle = viewAngle - FOV/2 + screenX/800*FOV;
         let rx = playerX;
@@ -189,29 +207,34 @@ function loop(){
         let lineHeight = 300.0 / correctDist;
         if(lineHeight>300) lineHeight=300;
 
-        // 后室阴暗配色，不使用距离雾化
-        let baseR = 90;
-        let baseG = 75;
-        let baseB = 50;
-
-        // 天花板
-        ctx.fillStyle = `rgb(${Math.floor(baseR*0.55)},${Math.floor(baseG*0.55)},${Math.floor(baseB*0.55)})`;
+        // ============ 后室标准黄墙配色 ============
+        // 天花板：暗灰黄，阴森不刺眼
+        const ceilR = 68, ceilG = 62, ceilB = 42;
+        ctx.fillStyle = `rgb(${ceilR},${ceilG},${ceilB})`;
         ctx.fillRect(screenX, 0, 1, 300 - lineHeight);
-        // 地板
-        ctx.fillStyle = `rgb(${Math.floor(baseR*0.4)},${Math.floor(baseG*0.4)},${Math.floor(baseB*0.4)})`;
+
+        // 地板：更深暗黄褐色
+        const floorR = 42, floorG = 38, floorB = 28;
+        ctx.fillStyle = `rgb(${floorR},${floorG},${floorB})`;
         ctx.fillRect(screenX, 300 + lineHeight, 1, 300 - lineHeight);
 
-        // 墙面明暗：近墙亮，远墙暗，但不做彩色雾化
-        let shade = Math.max(0.08, 1.0 - correctDist * 0.085);
+        // 墙壁基础黄色 #e6c26e 暗调版本
+        let baseR = 172;
+        let baseG = 148;
+        let baseB = 84;
+
+        // 距离衰减明暗，保持可见，不会黑成一片
+        let shade = Math.max(0.12, 1.0 - correctDist * 0.07);
         let r,g,b;
         if(wallSide===0){
             r = Math.floor(baseR * shade);
             g = Math.floor(baseG * shade);
             b = Math.floor(baseB * shade);
         }else{
-            r = Math.floor(baseR * shade * 0.65);
-            g = Math.floor(baseG * shade * 0.65);
-            b = Math.floor(baseB * shade * 0.65);
+            // 侧面墙体更暗，营造立体感
+            r = Math.floor(baseR * shade * 0.62);
+            g = Math.floor(baseG * shade * 0.62);
+            b = Math.floor(baseB * shade * 0.62);
         }
         ctx.strokeStyle=`rgb(${r},${g},${b})`;
         ctx.beginPath();
@@ -283,22 +306,24 @@ function loop(){
     ctx.font="bold 20px Arial";
     ctx.fillText("HP: "+playerHP,20,30);
 
-    // 死亡画面渲染
+    // 死亡画面【血红色主题】
     if(isDead){
         let passed = Date.now() - deathTimer;
         let remain = Math.max(0, Math.ceil((respawnWaitTime - passed)/1000));
-        ctx.fillStyle="rgba(0,0,0,0.75)";
+        ctx.fillStyle="rgba(18,0,0,0.8)";
         ctx.fillRect(0,0,800,600);
 
-        ctx.fillStyle="#990000";
+        ctx.fillStyle="#bb0000";
         ctx.font="bold 60px Arial";
         ctx.textAlign="center";
         ctx.fillText("您已死亡",400,260);
 
         ctx.font="24px Arial";
         if(remain>0){
+            ctx.fillStyle="#dd3333";
             ctx.fillText(`等待复活：${remain}秒`,400,310);
         }else{
+            ctx.fillStyle="#ff5555";
             ctx.fillText("按下空格键重新开始游戏",400,310);
         }
         ctx.textAlign="left";
