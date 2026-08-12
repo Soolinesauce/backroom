@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>Raycasting 3D迷宫 V1.1.7</title>
+<title>Raycasting 3D迷宫 V1.1.9</title>
 <style>
 body{background:#0a0a0a;display:flex;justify-content:center;margin:0;padding-top:20px;}
 canvas{border:2px solid #444;}
@@ -12,7 +12,7 @@ canvas{border:2px solid #444;}
 <body>
 <div>
 <canvas id="game" width="800" height="600"></canvas>
-<div class="info">yyishappy14提供技术支持|W前进 S后退 | Q左转 E右转 | A左平移 D右平移 | Shift奔跑(1.5倍速) | ESC关闭 | Sooline sauce	出品</div>
+<div class="info">W前进 S后退 | Q左转 E右转 | A左平移 D右平移 | Shift奔跑(1.5倍速) | ESC关闭 | Sooline sauce	出品|yyishappy14提供技术支持</div>
 </div>
 
 <script>
@@ -20,7 +20,7 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const PI = Math.PI;
 
-// ========== 区块平铺系统配置 ==========
+//  区块平铺系统配置 
 const CHUNK_SIZE = 32; // 每个区块大小32×32
 // 区块模板库，可以继续追加更多32×32迷宫
 const chunkTemplates = [
@@ -127,7 +127,7 @@ let playerY = 2.0;
 let viewAngle = 0.0;
 const FOV = PI / 4.0;
 const moveSpeed = 0.07;
-const runMulti = 1.5; // 奔跑1.5倍速
+const runMulti = 2; // 奔跑2倍速
 const rotateSpeed = 0.04;
 const rayStep = 0.02;
 const MAX_RAY_DIST = 24; //射线最大探测距离，防卡顿
@@ -144,6 +144,11 @@ const monsters = [];
 const MAX_MONSTER = 25;
 const chaseRange = 5;
 
+// 怪物速度参数（加速区间）
+const MONSTER_BASE_SPEED = 0.018;   // 基础低速
+const MONSTER_MAX_SPEED = 0.045;    // 极限高速
+const ACCEL_RANGE = 30;              // 距离小于30格开始加速
+
 // 随机生成一个合法空地坐标
 function SpawnRandomMonster() {
     let attempts = 0;
@@ -157,11 +162,9 @@ function SpawnRandomMonster() {
             let oy = my + 0.2 + Math.random()*0.6;
             let distSpawn = Math.hypot(ox - 2.0, oy - 2.0);
             if(distSpawn > 4.5){
-                let speed = 0.022 + Math.random()*0.008;
                 monsters.push({
                     x: ox,
                     y: oy,
-                    speed: speed,
                     size: 0.6
                 });
                 return;
@@ -204,14 +207,17 @@ function CanMove(x,y){
     return GetTile(x, y) === 0;
 }
 
-// 更新怪物AI
+// 更新怪物AI【核心修改：动态加速追杀】
 function UpdateMonsters() {
     for(let m of monsters) {
         let dx = playerX - m.x;
         let dy = playerY - m.y;
         let dist = Math.hypot(dx, dy);
 
+        // 超出追击范围，不移动
         if(dist > chaseRange) continue;
+
+        // 碰到玩家造成伤害
         if(dist < 0.25){
             if(!isDead){
                 playerHP -= monsterDamage;
@@ -224,11 +230,22 @@ function UpdateMonsters() {
             continue;
         }
 
+        // ========== 动态速度计算（越靠近越快）==========
+        let speed;
+        if(dist >= ACCEL_RANGE){
+            speed = MONSTER_BASE_SPEED;
+        }else{
+            // 线性插值加速：距离越近速度越高
+            let t = 1 - (dist / ACCEL_RANGE);
+            speed = MONSTER_BASE_SPEED + t * (MONSTER_MAX_SPEED - MONSTER_BASE_SPEED);
+        }
+        // ===============================================
+
         let dirX = dx / dist;
         let dirY = dy / dist;
 
-        let newX = m.x + dirX * m.speed;
-        let newY = m.y + dirY * m.speed;
+        let newX = m.x + dirX * speed;
+        let newY = m.y + dirY * speed;
         if(CanMove(newX, m.y)) m.x = newX;
         if(CanMove(m.x, newY)) m.y = newY;
     }
@@ -266,7 +283,7 @@ function loop(){
         let wallSide = 0;
         let hitDist = 0;
 
-        // 【改良】增加最大射线距离，防止空旷场景无限循环
+        // 增加最大射线距离，防止空旷场景无限循环
         while(!hitWall && hitDist < MAX_RAY_DIST){
             rx += dirX * rayStep;
             ry += dirY * rayStep;
@@ -394,7 +411,7 @@ function loop(){
         if(remain>0){
             ctx.fillStyle="#dd3333";
             ctx.fillText(`等待复活：${remain}秒`,400,310);
-            ctx.fillText(`下次复活将新增1只怪物！`,400,350);
+            ctx.fillText(`注意四周的危险`,400,350);
         }else{
             ctx.fillStyle="#ff5555";
             ctx.fillText("按下空格键重新开始游戏",400,310);
