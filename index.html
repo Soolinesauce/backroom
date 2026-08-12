@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>Raycasting 3D迷宫 无限地图+笑魇</title>
+<title>Raycasting 3D迷宫 V1.1.7</title>
 <style>
 body{background:#0a0a0a;display:flex;justify-content:center;margin:0;padding-top:20px;}
 canvas{border:2px solid #444;}
@@ -20,10 +20,12 @@ const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const PI = Math.PI;
 
-// 扩大基础迷宫单元 32行32列（无限平铺单元）
-const MAP_W = 32;
-const MAP_H = 32;
-const map = [
+// ========== 区块平铺系统配置 ==========
+const CHUNK_SIZE = 32; // 每个区块大小32×32
+// 区块模板库，可以继续追加更多32×32迷宫
+const chunkTemplates = [
+    // 模板0：原版迷宫
+[
 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
 [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
 [1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
@@ -56,7 +58,68 @@ const map = [
 [1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
 [1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
 [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+],
+    // 模板1：第二种迷宫布局
+[
+[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
+[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
+[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
+[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
+[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
+[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
+[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
+[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
+[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
+[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
+[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
+[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
+[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
+[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
+[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
+[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
+[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+]
 ];
+
+// 根据区块坐标稳定哈希，同一个区块永远使用同一个模板
+function GetChunkTemplateIndex(chunkX, chunkY){
+    let hash = chunkX * 7919 + chunkY * 6271;
+    hash = Math.abs(hash);
+    return hash % chunkTemplates.length;
+}
+
+// 新版GetTile：多区块无限平铺
+function GetTile(x, y) {
+    let tileX = Math.floor(x);
+    let tileY = Math.floor(y);
+
+    let chunkX = Math.floor(tileX / CHUNK_SIZE);
+    let chunkY = Math.floor(tileY / CHUNK_SIZE);
+
+    let localX = (tileX % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
+    let localY = (tileY % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
+
+    let templateId = GetChunkTemplateIndex(chunkX, chunkY);
+    let mapData = chunkTemplates[templateId];
+
+    return mapData[localY][localX];
+}
+// =============================================
 
 //玩家参数
 let playerX = 2.0;
@@ -66,31 +129,31 @@ const FOV = PI / 4.0;
 const moveSpeed = 0.07;
 const rotateSpeed = 0.04;
 const rayStep = 0.02;
+const MAX_RAY_DIST = 24; //射线最大探测距离，防卡顿
 
 // 玩家血量系统
 let playerHP = 100;
 const monsterDamage = 50;
 let isDead = false;
 let deathTimer = 0;
-const respawnWaitTime = 15000; // 修改复活时间15秒
+const respawnWaitTime = 15000;
 
 //怪物数组
 const monsters = [];
-const MAX_MONSTER = 25; // 最大怪物上限，防止卡顿
-const chaseRange = 5; //小于5格开始追杀
+const MAX_MONSTER = 25;
+const chaseRange = 5;
 
-// 随机生成一个合法空地坐标（不会卡在墙里）
+// 随机生成一个合法空地坐标
 function SpawnRandomMonster() {
     let attempts = 0;
     const maxTry = 800;
     while(attempts < maxTry){
-        let mx = 1 + Math.floor(Math.random()*(MAP_W-2));
-        let my = 1 + Math.floor(Math.random()*(MAP_H-2));
-        if(map[my][mx] === 0){
-            // 轻微偏移，不在格子正中心
+        // 怪物只在出生区块内生成，不跨区块随机
+        let mx = 1 + Math.floor(Math.random()*(CHUNK_SIZE-2));
+        let my = 1 + Math.floor(Math.random()*(CHUNK_SIZE-2));
+        if(GetTile(mx, my) === 0){
             let ox = mx + 0.2 + Math.random()*0.6;
             let oy = my + 0.2 + Math.random()*0.6;
-            // 距离玩家出生点不能太近，防止刚复活直接贴脸
             let distSpawn = Math.hypot(ox - 2.0, oy - 2.0);
             if(distSpawn > 4.5){
                 let speed = 0.022 + Math.random()*0.008;
@@ -117,7 +180,6 @@ const key = {};
 document.addEventListener("keydown",e=>{
     key[e.key.toUpperCase()]=true;
     if(e.key=="Escape") canvas.remove();
-    //死亡状态按空格重生
     if(isDead && e.key === " " && Date.now() - deathTimer > respawnWaitTime){
         respawnPlayer();
     }
@@ -131,37 +193,25 @@ function respawnPlayer(){
     viewAngle = 0;
     playerHP = 100;
     isDead = false;
-    // 每次复活，新增一只怪物（不超过上限）
     if(monsters.length < MAX_MONSTER){
         SpawnRandomMonster();
     }
 }
 
-// 无限地图取模，获取任意坐标地块
-function GetTile(x, y) {
-    let mx = Math.floor(x);
-    let my = Math.floor(y);
-    mx = (mx % MAP_W + MAP_W) % MAP_W;
-    my = (my % MAP_H + MAP_H) % MAP_H;
-    return map[my][mx];
-}
-
-// 碰撞检测（适配无限地图）
+// 碰撞检测
 function CanMove(x,y){
     return GetTile(x, y) === 0;
 }
 
-// 更新怪物AI：距离小于5格才追逐玩家
+// 更新怪物AI
 function UpdateMonsters() {
     for(let m of monsters) {
         let dx = playerX - m.x;
         let dy = playerY - m.y;
         let dist = Math.hypot(dx, dy);
 
-        // 距离超过5格，不移动
         if(dist > chaseRange) continue;
         if(dist < 0.25){
-            //怪物接触玩家，扣血
             if(!isDead){
                 playerHP -= monsterDamage;
                 if(playerHP <= 0){
@@ -183,9 +233,11 @@ function UpdateMonsters() {
     }
 }
 
-// 射线检测两点之间是否有墙体遮挡（怪物遮挡判断）
+// 射线检测两点之间是否有墙体遮挡（增加距离上限优化）
 function IsBlocked(x1,y1,x2,y2) {
     let dist = Math.hypot(x2-x1, y2-y1);
+    const MAX_CHECK = 20;
+    if(dist > MAX_CHECK) return true;
     let stepX = (x2-x1)/dist * rayStep;
     let stepY = (y2-y1)/dist * rayStep;
     let cx = x1, cy = y1;
@@ -198,13 +250,11 @@ function IsBlocked(x1,y1,x2,y2) {
 }
 
 function loop(){
-    // 清屏
     ctx.fillStyle="#000";
     ctx.fillRect(0,0,800,600);
 
     let wallDepth = new Array(800).fill(9999);
 
-    // 逐列投射墙体射线，黄色墙壁配色，后室风格
     for(let screenX=0;screenX<800;screenX++){
         let rayAngle = viewAngle - FOV/2 + screenX/800*FOV;
         let rx = playerX;
@@ -213,14 +263,15 @@ function loop(){
         let dirY = Math.sin(rayAngle);
         let hitWall = false;
         let wallSide = 0;
-        let hitDist = 9999;
+        let hitDist = 0;
 
-        while(!hitWall){
+        // 【改良】增加最大射线距离，防止空旷场景无限循环
+        while(!hitWall && hitDist < MAX_RAY_DIST){
             rx += dirX * rayStep;
             ry += dirY * rayStep;
+            hitDist = Math.hypot(rx-playerX, ry-playerY);
             if(GetTile(rx, ry)===1){
                 hitWall=true;
-                hitDist = Math.hypot(rx-playerX, ry-playerY);
                 let modX = rx%1;
                 let modY = ry%1;
                 wallSide = (Math.abs(modX-0.5)>Math.abs(modY-0.5)) ? 0 :1;
@@ -233,23 +284,18 @@ function loop(){
         let lineHeight = 300.0 / correctDist;
         if(lineHeight>300) lineHeight=300;
 
-        // ============ 后室标准黄墙配色 ============
-        // 天花板：暗灰黄，阴森不刺眼
         const ceilR = 68, ceilG = 62, ceilB = 42;
         ctx.fillStyle = `rgb(${ceilR},${ceilG},${ceilB})`;
         ctx.fillRect(screenX, 0, 1, 300 - lineHeight);
 
-        // 地板：更深暗黄褐色
         const floorR = 42, floorG = 38, floorB = 28;
         ctx.fillStyle = `rgb(${floorR},${floorG},${floorB})`;
         ctx.fillRect(screenX, 300 + lineHeight, 1, 300 - lineHeight);
 
-        // 墙壁基础黄色 #e6c26e 暗调版本
         let baseR = 172;
         let baseG = 148;
         let baseB = 84;
 
-        // 距离衰减明暗，保持可见，不会黑成一片
         let shade = Math.max(0.12, 1.0 - correctDist * 0.07);
         let r,g,b;
         if(wallSide===0){
@@ -257,7 +303,6 @@ function loop(){
             g = Math.floor(baseG * shade);
             b = Math.floor(baseB * shade);
         }else{
-            // 侧面墙体更暗，营造立体感
             r = Math.floor(baseR * shade * 0.62);
             g = Math.floor(baseG * shade * 0.62);
             b = Math.floor(baseB * shade * 0.62);
@@ -273,7 +318,7 @@ function loop(){
         UpdateMonsters();
     }
 
-    // 渲染所有笑魇怪物
+    //渲染怪物
     for(let m of monsters){
         let dx = m.x - playerX;
         let dy = m.y - playerY;
@@ -300,7 +345,6 @@ function loop(){
         let col = Math.floor(screenX);
         if(col >=0 && col <800 && wallDepth[col] < correctMDist) continue;
 
-        // 绘制笑魇
         ctx.fillStyle = "#000000";
         ctx.fillRect(cx - width/2, topY, width, botY - topY);
         ctx.strokeStyle="#ffffff";
@@ -327,14 +371,13 @@ function loop(){
         ctx.stroke();
     }
 
-    // UI 血量+当前怪物数量显示
+    //UI
     ctx.fillStyle="#ff3333";
     ctx.font="bold 20px Arial";
     ctx.fillText("HP: "+playerHP,20,30);
     ctx.fillStyle="#ffaa00";
     ctx.fillText("怪物数量: "+monsters.length,20,55);
 
-    // 死亡画面【血红色主题】
     if(isDead){
         let passed = Date.now() - deathTimer;
         let remain = Math.max(0, Math.ceil((respawnWaitTime - passed)/1000));
