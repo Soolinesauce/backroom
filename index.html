@@ -12,7 +12,7 @@ canvas{border:2px solid #444;}
 <body>
 <div>
 <canvas id="game" width="800" height="600"></canvas>
-<div class="info">W前进 S后退 | Q左转 E右转 | A左平移 D右平移 | Shift奔跑(1.5倍速) | ESC关闭 | Sooline sauce	出品|yyishappy14提供技术支持</div>
+<div class="info">W前进 S后退 | Q左转 E右转 | A左平移 D右平移 | Shift奔跑 | ESC关闭 | Sooline sauce出品|yyishappy14提供技术支持</div>
 </div>
 
 <script>
@@ -127,7 +127,7 @@ let playerY = 2.0;
 let viewAngle = 0.0;
 const FOV = PI / 4.0;
 const moveSpeed = 0.07;
-const runMulti = 1.5; // 奔跑1.5倍速
+const runMulti = 2; // 奔跑2倍速
 const rotateSpeed = 0.04;
 const rayStep = 0.02;
 const MAX_RAY_DIST = 24; //射线最大探测距离，防卡顿
@@ -283,7 +283,7 @@ function loop(){
         let wallSide = 0;
         let hitDist = 0;
 
-        // 【改良】增加最大射线距离，防止空旷场景无限循环
+        // 增加最大射线距离，防止空旷场景无限循环
         while(!hitWall && hitDist < MAX_RAY_DIST){
             rx += dirX * rayStep;
             ry += dirY * rayStep;
@@ -411,11 +411,11 @@ function loop(){
         if(remain>0){
             ctx.fillStyle="#dd3333";
             ctx.fillText(`等待复活：${remain}秒`,400,310);
-            ctx.fillText(`下次复活将新增1只怪物！`,400,350);
+            ctx.fillText(`注意四周的危险`,400,350);
         }else{
             ctx.fillStyle="#ff5555";
             ctx.fillText("按下空格键重新开始游戏",400,310);
-            ctx.fillText(`复活后怪物总数+1`,400,350);
+            ctx.fillText(`永远别想从这里出去——The Lost`,400,350);
         }
         ctx.textAlign="left";
     }
