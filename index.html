@@ -12,7 +12,7 @@ canvas{border:2px solid #444;}
 <body>
 <div>
 <canvas id="game" width="800" height="600"></canvas>
-<div class="info">yyishappy14提供技术支持|W前进 S后退 | Q左转 E右转 | A左平移 D右平移 | ESC关闭 | Sooline sauce出品</div>
+<div class="info">W前进 S后退 | Q左转 E右转 | A左平移 D右平移 | Shift奔跑(1.5倍速) | ESC关闭 | Sooline sauce	出品</div>
 </div>
 
 <script>
@@ -127,6 +127,7 @@ let playerY = 2.0;
 let viewAngle = 0.0;
 const FOV = PI / 4.0;
 const moveSpeed = 0.07;
+const runMulti = 1.5; // 奔跑1.5倍速
 const rotateSpeed = 0.04;
 const rayStep = 0.02;
 const MAX_RAY_DIST = 24; //射线最大探测距离，防卡顿
@@ -404,10 +405,11 @@ function loop(){
 
     //玩家移动
     if(!isDead){
-        let forwardX = Math.cos(viewAngle)*moveSpeed;
-        let forwardY = Math.sin(viewAngle)*moveSpeed;
-        let rightX = Math.cos(viewAngle+PI/2)*moveSpeed;
-        let rightY = Math.sin(viewAngle+PI/2)*moveSpeed;
+        let speedMult = key["SHIFT"] ? runMulti : 1.0;
+        let forwardX = Math.cos(viewAngle)*moveSpeed * speedMult;
+        let forwardY = Math.sin(viewAngle)*moveSpeed * speedMult;
+        let rightX = Math.cos(viewAngle+PI/2)*moveSpeed * speedMult;
+        let rightY = Math.sin(viewAngle+PI/2)*moveSpeed * speedMult;
 
         if(key["W"]){
             if(CanMove(playerX+forwardX, playerY)) playerX+=forwardX;
