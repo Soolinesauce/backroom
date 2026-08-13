@@ -17,7 +17,7 @@ canvas{border:2px solid #444;}
 
 <!-- 音频模块 -->
 <audio id="bgMusic" loop preload="auto">
-    <source src="bgm.mp3" type="audio/mpeg">
+    <source src="Backroom.mp3" type="audio/mpeg">
 
 <audio id="hurtSound" preload="auto">
     <source src="hurt.mp3" type="audio/mpeg">
@@ -216,7 +216,7 @@ const key = {};
 document.addEventListener("keydown",e=>{
     key[e.key.toUpperCase()]=true;
 
-    // 音频初始化（浏览器要求必须用户交互后播放）
+    // 音频初始化
     if(!audioInit){
         audioInit = true;
         if(musicEnabled) bgMusic.play();
@@ -540,7 +540,7 @@ function loop(){
         }else{
             ctx.fillStyle="#ff5555";
             ctx.fillText("按下空格键重新开始游戏",400,310);
-            ctx.fillText(`复活后怪物总数+1`,400,350);
+            ctx.fillText(`永远别想从这里出去——The lost`,400,350);
         }
         ctx.textAlign="left";
     }
