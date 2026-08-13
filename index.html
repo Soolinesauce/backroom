@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<title>Raycasting 3D迷宫 V1.1.9</title>
+<title>Raycasting 3D迷宫 V1.10</title>
 <style>
 body{background:#0a0a0a;display:flex;justify-content:center;margin:0;padding-top:20px;}
 canvas{border:2px solid #444;}
@@ -15,10 +15,41 @@ canvas{border:2px solid #444;}
 <div class="info">W前进 S后退 | Q左转 E右转 | A左平移 D右平移 | Shift奔跑 | ESC关闭 | Sooline sauce出品|yyishappy14提供技术支持</div>
 </div>
 
+<!-- 音频模块 -->
+<audio id="bgMusic" loop preload="auto">
+    <source src="bgm.mp3" type="audio/mpeg">
+
+<audio id="hurtSound" preload="auto">
+    <source src="hurt.mp3" type="audio/mpeg">
+
+<!-- 新增音频 -->
+<audio id="dangerAudio" loop preload="auto">
+    <source src="danger.mp3" type="audio/mpeg">
+
+<audio id="stepAudio" loop preload="auto">
+    <source src="monster_step.mp3" type="audio/mpeg">
+
+<audio id="deathAudio" preload="auto">
+    <source src="death.mp3" type="audio/mpeg">
+
+
 <script>
 const canvas = document.getElementById("game");
 const ctx = canvas.getContext("2d");
 const PI = Math.PI;
+
+// 音频控制全局变量
+const bgMusic = document.getElementById("bgMusic");
+const hurtSound = document.getElementById("hurtSound");
+const dangerAudio = document.getElementById("dangerAudio");
+const stepAudio = document.getElementById("stepAudio");
+const deathAudio = document.getElementById("deathAudio");
+
+let musicEnabled = true;
+let audioInit = false; //标记是否已经触发音频初始化（浏览器交互限制）
+let dangerPlaying = false;
+let stepPlaying = false;
+// 
 
 //  区块平铺系统配置 
 const CHUNK_SIZE = 32; // 每个区块大小32×32
@@ -119,7 +150,7 @@ function GetTile(x, y) {
 
     return mapData[localY][localX];
 }
-// =============================================
+// 
 
 //玩家参数
 let playerX = 2.0;
@@ -165,7 +196,8 @@ function SpawnRandomMonster() {
                 monsters.push({
                     x: ox,
                     y: oy,
-                    size: 0.6
+                    size: 0.6,
+                    moving: false //标记怪物是否正在移动
                 });
                 return;
             }
@@ -183,12 +215,45 @@ for(let i=0;i<5;i++){
 const key = {};
 document.addEventListener("keydown",e=>{
     key[e.key.toUpperCase()]=true;
+
+    // 音频初始化（浏览器要求必须用户交互后播放）
+    if(!audioInit){
+        audioInit = true;
+        if(musicEnabled) bgMusic.play();
+    }
+    // M键开关所有音频
+    if(e.key.toUpperCase() === "M"){
+        musicEnabled = !musicEnabled;
+        if(musicEnabled){
+            bgMusic.play();
+        }else{
+            bgMusic.pause();
+            dangerAudio.pause();
+            stepAudio.pause();
+            dangerPlaying = false;
+            stepPlaying = false;
+        }
+    }
+    // 
+
     if(e.key=="Escape") canvas.remove();
     if(isDead && e.key === " " && Date.now() - deathTimer > respawnWaitTime){
         respawnPlayer();
     }
 });
 document.addEventListener("keyup",e=>{key[e.key.toUpperCase()]=false;});
+
+//播放受伤音效函数
+function PlayHurtSound(){
+    hurtSound.currentTime = 0;
+    hurtSound.play().catch(()=>{});
+}
+
+//播放死亡音效
+function PlayDeathSound(){
+    deathAudio.currentTime = 0;
+    deathAudio.play().catch(()=>{});
+}
 
 //重生函数
 function respawnPlayer(){
@@ -209,10 +274,15 @@ function CanMove(x,y){
 
 // 更新怪物AI【核心修改：动态加速追杀】
 function UpdateMonsters() {
+    let anyMonsterMoving = false;
+    let minDist = 9999;
+
     for(let m of monsters) {
+        m.moving = false;
         let dx = playerX - m.x;
         let dy = playerY - m.y;
         let dist = Math.hypot(dx, dy);
+        if(dist < minDist) minDist = dist;
 
         // 超出追击范围，不移动
         if(dist > chaseRange) continue;
@@ -221,16 +291,23 @@ function UpdateMonsters() {
         if(dist < 0.25){
             if(!isDead){
                 playerHP -= monsterDamage;
+                PlayHurtSound(); //触发受伤音效
                 if(playerHP <= 0){
                     playerHP = 0;
                     isDead = true;
                     deathTimer = Date.now();
+                    //死亡立刻停止惊悚音效、脚步声
+                    dangerAudio.pause();
+                    stepAudio.pause();
+                    dangerPlaying = false;
+                    stepPlaying = false;
+                    PlayDeathSound();
                 }
             }
             continue;
         }
 
-        // ========== 动态速度计算（越靠近越快）==========
+        //  动态速度计算
         let speed;
         if(dist >= ACCEL_RANGE){
             speed = MONSTER_BASE_SPEED;
@@ -239,16 +316,62 @@ function UpdateMonsters() {
             let t = 1 - (dist / ACCEL_RANGE);
             speed = MONSTER_BASE_SPEED + t * (MONSTER_MAX_SPEED - MONSTER_BASE_SPEED);
         }
-        // ===============================================
+        //
 
         let dirX = dx / dist;
         let dirY = dy / dist;
 
         let newX = m.x + dirX * speed;
         let newY = m.y + dirY * speed;
-        if(CanMove(newX, m.y)) m.x = newX;
-        if(CanMove(m.x, newY)) m.y = newY;
+        let canX = CanMove(newX, m.y);
+        let canY = CanMove(m.x, newY);
+        if(canX) m.x = newX;
+        if(canY) m.y = newY;
+        if(canX || canY){
+            m.moving = true;
+            anyMonsterMoving = true;
+        }
     }
+
+    //  音效控制逻辑 
+    if(musicEnabled && audioInit && !isDead){
+        // 危险音效：距离越近音量越大
+        const maxDangerDist = 8;
+        let dangerVol = Math.max(0, 1 - minDist / maxDangerDist);
+        dangerAudio.volume = dangerVol;
+
+        if(dangerVol > 0.02){
+            if(!dangerPlaying){
+                dangerAudio.play().catch(()=>{});
+                dangerPlaying = true;
+            }
+        }else{
+            if(dangerPlaying){
+                dangerAudio.pause();
+                dangerPlaying = false;
+            }
+        }
+
+        // 脚步声：任意怪物移动就播放
+        if(anyMonsterMoving){
+            if(!stepPlaying){
+                stepAudio.play().catch(()=>{});
+                stepPlaying = true;
+            }
+        }else{
+            if(stepPlaying){
+                stepAudio.pause();
+                stepPlaying = false;
+            }
+        }
+    }else{
+        // 音乐关闭 / 死亡状态，全部暂停
+        dangerAudio.pause();
+        stepAudio.pause();
+        dangerPlaying = false;
+        stepPlaying = false;
+    }
+    // 
 }
 
 // 射线检测两点之间是否有墙体遮挡（增加距离上限优化）
@@ -395,6 +518,8 @@ function loop(){
     ctx.fillText("HP: "+playerHP,20,30);
     ctx.fillStyle="#ffaa00";
     ctx.fillText("怪物数量: "+monsters.length,20,55);
+    ctx.fillStyle="#aaaaaa";
+    ctx.fillText(musicEnabled ? "音乐：开启(M关闭)" : "音乐：关闭(M开启)",20,80);
 
     if(isDead){
         let passed = Date.now() - deathTimer;
@@ -415,7 +540,7 @@ function loop(){
         }else{
             ctx.fillStyle="#ff5555";
             ctx.fillText("按下空格键重新开始游戏",400,310);
-            ctx.fillText(`永远别想从这里出去——The Lost`,400,350);
+            ctx.fillText(`复活后怪物总数+1`,400,350);
         }
         ctx.textAlign="left";
     }
