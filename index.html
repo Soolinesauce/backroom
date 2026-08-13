@@ -1,581 +1,595 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<title>Raycasting 3D迷宫 V1.10</title>
-<style>
-body{background:#0a0a0a;display:flex;justify-content:center;margin:0;padding-top:20px;}
-canvas{border:2px solid #444;}
-.info{color:#dddddd;font-family:Arial;margin-top:10px;text-align:center;font-size:15px}
-</style>
+    <meta charset="UTF-8">
+    <title>3D迷宫 V1.12</title>
+    <style>
+        body {
+            background: #0a0a0a;
+            display: flex;
+            justify-content: center;
+            margin: 0;
+            padding-top: 20px;
+        }
+        canvas {
+            border: 2px solid #444;
+        }
+        .info {
+            color: #dddddd;
+            font-family: Arial;
+            margin-top: 10px;
+            text-align: center;
+            font-size: 15px
+        }
+    </style>
 </head>
 <body>
-<div>
-<canvas id="game" width="800" height="600"></canvas>
-<div class="info">W前进 S后退 | Q左转 E右转 | A左平移 D右平移 | Shift奔跑 | ESC关闭 | Sooline sauce出品|yyishappy14提供技术支持</div>
-</div>
+    <div>
+        <canvas id="game" width="800" height="600"></canvas>
+        <div class="info">WASD移动 Q/E旋转 Shift奔跑 | 存活30秒后出口出现 | 找到绿色光柱通关</div>
+    </div>
 
-<!-- 音频模块 -->
-<audio id="bgMusic" loop preload="auto">
-    <source src="Backroom.mp3" type="audio/mpeg">
+    <script>
+        const canvas = document.getElementById("game");
+        const ctx = canvas.getContext("2d");
+        const PI = Math.PI;
 
-<audio id="hurtSound" preload="auto">
-    <source src="hurt.mp3" type="audio/mpeg">
+        // ---------- 区块系统（同前） ----------
+        const CHUNK_SIZE = 32;
+        const chunkTemplates = [
+            // 模板0（原版迷宫）
+            [
+                [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1],
+                [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1],
+                [1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+                [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1],
+                [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1],
+                [1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+                [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1],
+                [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1],
+                [1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+                [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1],
+                [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1],
+                [1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+                [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1],
+                [1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1],
+                [1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1],
+                [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
+                [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+            ],
+            // 模板1（可省略，保留一个占位）
+            [
+                [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1],
+                [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
+                [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+            ]
+        ];
 
-<!-- 新增音频 -->
-<audio id="dangerAudio" loop preload="auto">
-    <source src="danger.mp3" type="audio/mpeg">
+        function GetChunkTemplateIndex(chunkX, chunkY) {
+            let hash = chunkX * 7919 + chunkY * 6271;
+            hash = Math.abs(hash);
+            return hash % chunkTemplates.length;
+        }
 
-<audio id="stepAudio" loop preload="auto">
-    <source src="monster_step.mp3" type="audio/mpeg">
+        function GetTile(x, y) {
+            let tileX = Math.floor(x);
+            let tileY = Math.floor(y);
+            let chunkX = Math.floor(tileX / CHUNK_SIZE);
+            let chunkY = Math.floor(tileY / CHUNK_SIZE);
+            let localX = (tileX % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
+            let localY = (tileY % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
+            let templateId = GetChunkTemplateIndex(chunkX, chunkY);
+            return chunkTemplates[templateId][localY][localX];
+        }
 
-<audio id="deathAudio" preload="auto">
-    <source src="death.mp3" type="audio/mpeg">
+        // ---------- 玩家 ----------
+        let playerX = 2.0;
+        let playerY = 2.0;
+        let viewAngle = 0.0;
+        const FOV = PI / 4.0;
+        const moveSpeed = 0.07;
+        const runMulti = 2;
+        const rotateSpeed = 0.04;
+        const rayStep = 0.02;
+        const MAX_RAY_DIST = 24;
 
+        let playerHP = 100;
+        const monsterDamage = 50;
+        let isDead = false;
+        let deathTimer = 0;
+        const respawnWaitTime = 15000;
 
-<script>
-const canvas = document.getElementById("game");
-const ctx = canvas.getContext("2d");
-const PI = Math.PI;
+        let win = false;
 
-// 音频控制全局变量
-const bgMusic = document.getElementById("bgMusic");
-const hurtSound = document.getElementById("hurtSound");
-const dangerAudio = document.getElementById("dangerAudio");
-const stepAudio = document.getElementById("stepAudio");
-const deathAudio = document.getElementById("deathAudio");
+        // 怪物系统
+        const monsters = [];
+        const MAX_MONSTER = 25;
+        const chaseRange = 5;
+        const MONSTER_BASE_SPEED = 0.018;
+        const MONSTER_MAX_SPEED = 0.045;
+        const ACCEL_RANGE = 30;
 
-let musicEnabled = true;
-let audioInit = false; //标记是否已经触发音频初始化（浏览器交互限制）
-let dangerPlaying = false;
-let stepPlaying = false;
-// 
+        // ---------- 出口延迟机制 ----------
+        const EXIT_DELAY = 250000; // 2500秒
+        let exitVisible = false;
+        let exitX = 0,
+            exitY = 0;
+        let gameStartTime = 0; // 用于计时（毫秒）
 
-//  区块平铺系统配置 
-const CHUNK_SIZE = 32; // 每个区块大小32×32
-// 区块模板库，可以继续追加更多32×32迷宫
-const chunkTemplates = [
-    // 模板0：原版迷宫
-[
-[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-[1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
-[1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
-[1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1],
-[1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
-[1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
-[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-[1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
-[1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
-[1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1],
-[1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
-[1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
-[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-[1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
-[1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
-[1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1],
-[1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
-[1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
-[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-[1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
-[1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
-[1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1],
-[1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
-[1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
-[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-[1,0,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1,1,1,1,1,0,1],
-[1,0,1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,1,0,1],
-[1,0,1,0,1,1,1,1,1,1,0,1,1,1,1,1,1,1,0,1,1,1,0,1,1,1,1,1,0,1,0,1],
-[1,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,1,0,0,0,1],
-[1,0,1,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,0,1,1,1,1,1,0,1,1,1,0,1,0,1],
-[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-],
-    // 模板1：第二种迷宫布局
-[
-[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
-[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
-[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
-[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
-[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
-[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
-[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
-[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
-[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
-[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
-[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
-[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
-[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
-[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
-[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
-[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
-[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
-[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
-[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
-[1,0,0,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,1,1,0,1,0,0,0,1,0,0,0,0,1],
-[1,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1,1,1,1,1,0,0,0,0,1],
-[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
-]
-];
-
-// 根据区块坐标稳定哈希，同一个区块永远使用同一个模板
-function GetChunkTemplateIndex(chunkX, chunkY){
-    let hash = chunkX * 7919 + chunkY * 6271;
-    hash = Math.abs(hash);
-    return hash % chunkTemplates.length;
-}
-
-// 新版GetTile：多区块无限平铺
-function GetTile(x, y) {
-    let tileX = Math.floor(x);
-    let tileY = Math.floor(y);
-
-    let chunkX = Math.floor(tileX / CHUNK_SIZE);
-    let chunkY = Math.floor(tileY / CHUNK_SIZE);
-
-    let localX = (tileX % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
-    let localY = (tileY % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
-
-    let templateId = GetChunkTemplateIndex(chunkX, chunkY);
-    let mapData = chunkTemplates[templateId];
-
-    return mapData[localY][localX];
-}
-// 
-
-//玩家参数
-let playerX = 2.0;
-let playerY = 2.0;
-let viewAngle = 0.0;
-const FOV = PI / 4.0;
-const moveSpeed = 0.07;
-const runMulti = 2; // 奔跑2倍速
-const rotateSpeed = 0.04;
-const rayStep = 0.02;
-const MAX_RAY_DIST = 24; //射线最大探测距离，防卡顿
-
-// 玩家血量系统
-let playerHP = 100;
-const monsterDamage = 50;
-let isDead = false;
-let deathTimer = 0;
-const respawnWaitTime = 15000;
-
-//怪物数组
-const monsters = [];
-const MAX_MONSTER = 25;
-const chaseRange = 5;
-
-// 怪物速度参数（加速区间）
-const MONSTER_BASE_SPEED = 0.018;   // 基础低速
-const MONSTER_MAX_SPEED = 0.045;    // 极限高速
-const ACCEL_RANGE = 30;              // 距离小于30格开始加速
-
-// 随机生成一个合法空地坐标
-function SpawnRandomMonster() {
-    let attempts = 0;
-    const maxTry = 800;
-    while(attempts < maxTry){
-        // 怪物只在出生区块内生成，不跨区块随机
-        let mx = 1 + Math.floor(Math.random()*(CHUNK_SIZE-2));
-        let my = 1 + Math.floor(Math.random()*(CHUNK_SIZE-2));
-        if(GetTile(mx, my) === 0){
-            let ox = mx + 0.2 + Math.random()*0.6;
-            let oy = my + 0.2 + Math.random()*0.6;
-            let distSpawn = Math.hypot(ox - 2.0, oy - 2.0);
-            if(distSpawn > 4.5){
-                monsters.push({
-                    x: ox,
-                    y: oy,
-                    size: 0.6,
-                    moving: false //标记怪物是否正在移动
-                });
-                return;
+        // 生成出口（随机位置，远离玩家至少5格）
+        function generateExit() {
+            let attempts = 0;
+            const maxTry = 2000;
+            while (attempts < maxTry) {
+                // 在初始区块 (0,0) 范围内随机，但也可以跨区块，为了简单保持在本区块
+                let tx = 2 + Math.floor(Math.random() * (CHUNK_SIZE - 4));
+                let ty = 2 + Math.floor(Math.random() * (CHUNK_SIZE - 4));
+                if (GetTile(tx, ty) === 0) {
+                    let ex = tx + 0.5;
+                    let ey = ty + 0.5;
+                    // 距离玩家至少 30 格
+                    if (Math.hypot(ex - playerX, ey - playerY) > 30) {
+                        exitX = ex;
+                        exitY = ey;
+                        return true;
+                    }
+                }
+                attempts++;
             }
-        }
-        attempts++;
-    }
-}
-
-//初始生成5只怪物
-for(let i=0;i<5;i++){
-    SpawnRandomMonster();
-}
-
-//按键状态
-const key = {};
-document.addEventListener("keydown",e=>{
-    key[e.key.toUpperCase()]=true;
-
-    // 音频初始化
-    if(!audioInit){
-        audioInit = true;
-        if(musicEnabled) bgMusic.play();
-    }
-    // M键开关所有音频
-    if(e.key.toUpperCase() === "M"){
-        musicEnabled = !musicEnabled;
-        if(musicEnabled){
-            bgMusic.play();
-        }else{
-            bgMusic.pause();
-            dangerAudio.pause();
-            stepAudio.pause();
-            dangerPlaying = false;
-            stepPlaying = false;
-        }
-    }
-    // 
-
-    if(e.key=="Escape") canvas.remove();
-    if(isDead && e.key === " " && Date.now() - deathTimer > respawnWaitTime){
-        respawnPlayer();
-    }
-});
-document.addEventListener("keyup",e=>{key[e.key.toUpperCase()]=false;});
-
-//播放受伤音效函数
-function PlayHurtSound(){
-    hurtSound.currentTime = 0;
-    hurtSound.play().catch(()=>{});
-}
-
-//播放死亡音效
-function PlayDeathSound(){
-    deathAudio.currentTime = 0;
-    deathAudio.play().catch(()=>{});
-}
-
-//重生函数
-function respawnPlayer(){
-    playerX = 2.0;
-    playerY = 2.0;
-    viewAngle = 0;
-    playerHP = 100;
-    isDead = false;
-    if(monsters.length < MAX_MONSTER){
-        SpawnRandomMonster();
-    }
-}
-
-// 碰撞检测
-function CanMove(x,y){
-    return GetTile(x, y) === 0;
-}
-
-// 更新怪物AI【核心修改：动态加速追杀】
-function UpdateMonsters() {
-    let anyMonsterMoving = false;
-    let minDist = 9999;
-
-    for(let m of monsters) {
-        m.moving = false;
-        let dx = playerX - m.x;
-        let dy = playerY - m.y;
-        let dist = Math.hypot(dx, dy);
-        if(dist < minDist) minDist = dist;
-
-        // 超出追击范围，不移动
-        if(dist > chaseRange) continue;
-
-        // 碰到玩家造成伤害
-        if(dist < 0.25){
-            if(!isDead){
-                playerHP -= monsterDamage;
-                PlayHurtSound(); //触发受伤音效
-                if(playerHP <= 0){
-                    playerHP = 0;
-                    isDead = true;
-                    deathTimer = Date.now();
-                    //死亡立刻停止惊悚音效、脚步声
-                    dangerAudio.pause();
-                    stepAudio.pause();
-                    dangerPlaying = false;
-                    stepPlaying = false;
-                    PlayDeathSound();
+            // 保底：在玩家周围 8~15 格找空地
+            for (let r = 8; r < 20; r++) {
+                for (let angle = 0; angle < 2 * PI; angle += 0.3) {
+                    let ex = playerX + r * Math.cos(angle);
+                    let ey = playerY + r * Math.sin(angle);
+                    if (GetTile(ex, ey) === 0) {
+                        exitX = ex;
+                        exitY = ey;
+                        return true;
+                    }
                 }
             }
-            continue;
+            return false;
         }
 
-        //  动态速度计算
-        let speed;
-        if(dist >= ACCEL_RANGE){
-            speed = MONSTER_BASE_SPEED;
-        }else{
-            // 线性插值加速：距离越近速度越高
-            let t = 1 - (dist / ACCEL_RANGE);
-            speed = MONSTER_BASE_SPEED + t * (MONSTER_MAX_SPEED - MONSTER_BASE_SPEED);
+        // 重置出口状态
+        function resetExit() {
+            exitVisible = false;
+            gameStartTime = Date.now();
         }
-        //
 
-        let dirX = dx / dist;
-        let dirY = dy / dist;
-
-        let newX = m.x + dirX * speed;
-        let newY = m.y + dirY * speed;
-        let canX = CanMove(newX, m.y);
-        let canY = CanMove(m.x, newY);
-        if(canX) m.x = newX;
-        if(canY) m.y = newY;
-        if(canX || canY){
-            m.moving = true;
-            anyMonsterMoving = true;
-        }
-    }
-
-    //  音效控制逻辑 
-    if(musicEnabled && audioInit && !isDead){
-        // 危险音效：距离越近音量越大
-        const maxDangerDist = 8;
-        let dangerVol = Math.max(0, 1 - minDist / maxDangerDist);
-        dangerAudio.volume = dangerVol;
-
-        if(dangerVol > 0.02){
-            if(!dangerPlaying){
-                dangerAudio.play().catch(()=>{});
-                dangerPlaying = true;
-            }
-        }else{
-            if(dangerPlaying){
-                dangerAudio.pause();
-                dangerPlaying = false;
+        // 随机生成怪物（同前）
+        function SpawnRandomMonster() {
+            let attempts = 0;
+            const maxTry = 800;
+            while (attempts < maxTry) {
+                let mx = 1 + Math.floor(Math.random() * (CHUNK_SIZE - 2));
+                let my = 1 + Math.floor(Math.random() * (CHUNK_SIZE - 2));
+                if (GetTile(mx, my) === 0) {
+                    let ox = mx + 0.2 + Math.random() * 0.6;
+                    let oy = my + 0.2 + Math.random() * 0.6;
+                    let distSpawn = Math.hypot(ox - 2.0, oy - 2.0);
+                    if (distSpawn > 4.5) {
+                        monsters.push({
+                            x: ox,
+                            y: oy,
+                            size: 0.6,
+                            moving: false
+                        });
+                        return;
+                    }
+                }
+                attempts++;
             }
         }
 
-        // 脚步声：任意怪物移动就播放
-        if(anyMonsterMoving){
-            if(!stepPlaying){
-                stepAudio.play().catch(()=>{});
-                stepPlaying = true;
+        // 初始化怪物
+        for (let i = 0; i < 5; i++) SpawnRandomMonster();
+
+        // 按键
+        const key = {};
+        document.addEventListener("keydown", e => {
+            key[e.key.toUpperCase()] = true;
+            if (e.key == "Escape") canvas.remove();
+            if (isDead && e.key === " " && Date.now() - deathTimer > respawnWaitTime) {
+                respawnPlayer();
             }
-        }else{
-            if(stepPlaying){
-                stepAudio.pause();
-                stepPlaying = false;
+            if (win && e.key.toUpperCase() === "R") {
+                resetGame();
+            }
+        });
+        document.addEventListener("keyup", e => { key[e.key.toUpperCase()] = false; });
+
+        function respawnPlayer() {
+            playerX = 2.0;
+            playerY = 2.0;
+            viewAngle = 0;
+            playerHP = 100;
+            isDead = false;
+            win = false;
+            resetExit(); // 重置计时器，出口消失
+            // 补充怪物
+            while (monsters.length < MAX_MONSTER) SpawnRandomMonster();
+        }
+
+        function resetGame() {
+            win = false;
+            playerHP = 100;
+            isDead = false;
+            playerX = 2.0;
+            playerY = 2.0;
+            viewAngle = 0;
+            monsters.length = 0;
+            for (let i = 0; i < 5; i++) SpawnRandomMonster();
+            resetExit();
+        }
+
+        function CanMove(x, y) {
+            return GetTile(x, y) === 0;
+        }
+
+        // 怪物AI
+        function UpdateMonsters() {
+            if (win) return;
+            for (let m of monsters) {
+                m.moving = false;
+                let dx = playerX - m.x;
+                let dy = playerY - m.y;
+                let dist = Math.hypot(dx, dy);
+                if (dist > chaseRange) continue;
+                if (dist < 0.25) {
+                    if (!isDead) {
+                        playerHP -= monsterDamage;
+                        if (playerHP <= 0) {
+                            playerHP = 0;
+                            isDead = true;
+                            deathTimer = Date.now();
+                            // 死亡时隐藏出口并重置计时
+                            exitVisible = false;
+                        }
+                    }
+                    continue;
+                }
+                let speed = (dist >= ACCEL_RANGE) ? MONSTER_BASE_SPEED :
+                    MONSTER_BASE_SPEED + (1 - dist / ACCEL_RANGE) * (MONSTER_MAX_SPEED - MONSTER_BASE_SPEED);
+                let dirX = dx / dist;
+                let dirY = dy / dist;
+                let newX = m.x + dirX * speed;
+                let newY = m.y + dirY * speed;
+                let canX = CanMove(newX, m.y);
+                let canY = CanMove(m.x, newY);
+                if (canX) m.x = newX;
+                if (canY) m.y = newY;
+                if (canX || canY) m.moving = true;
             }
         }
-    }else{
-        // 音乐关闭 / 死亡状态，全部暂停
-        dangerAudio.pause();
-        stepAudio.pause();
-        dangerPlaying = false;
-        stepPlaying = false;
-    }
-    // 
-}
 
-// 射线检测两点之间是否有墙体遮挡（增加距离上限优化）
-function IsBlocked(x1,y1,x2,y2) {
-    let dist = Math.hypot(x2-x1, y2-y1);
-    const MAX_CHECK = 20;
-    if(dist > MAX_CHECK) return true;
-    let stepX = (x2-x1)/dist * rayStep;
-    let stepY = (y2-y1)/dist * rayStep;
-    let cx = x1, cy = y1;
-    for(let i=0; i<dist/rayStep; i++){
-        cx += stepX;
-        cy += stepY;
-        if(GetTile(cx, cy) === 1) return true;
-    }
-    return false;
-}
-
-function loop(){
-    ctx.fillStyle="#000";
-    ctx.fillRect(0,0,800,600);
-
-    let wallDepth = new Array(800).fill(9999);
-
-    for(let screenX=0;screenX<800;screenX++){
-        let rayAngle = viewAngle - FOV/2 + screenX/800*FOV;
-        let rx = playerX;
-        let ry = playerY;
-        let dirX = Math.cos(rayAngle);
-        let dirY = Math.sin(rayAngle);
-        let hitWall = false;
-        let wallSide = 0;
-        let hitDist = 0;
-
-        // 增加最大射线距离，防止空旷场景无限循环
-        while(!hitWall && hitDist < MAX_RAY_DIST){
-            rx += dirX * rayStep;
-            ry += dirY * rayStep;
-            hitDist = Math.hypot(rx-playerX, ry-playerY);
-            if(GetTile(rx, ry)===1){
-                hitWall=true;
-                let modX = rx%1;
-                let modY = ry%1;
-                wallSide = (Math.abs(modX-0.5)>Math.abs(modY-0.5)) ? 0 :1;
+        function IsBlocked(x1, y1, x2, y2) {
+            let dist = Math.hypot(x2 - x1, y2 - y1);
+            if (dist > 20) return true;
+            let stepX = (x2 - x1) / dist * rayStep;
+            let stepY = (y2 - y1) / dist * rayStep;
+            let cx = x1,
+                cy = y1;
+            for (let i = 0; i < dist / rayStep; i++) {
+                cx += stepX;
+                cy += stepY;
+                if (GetTile(cx, cy) === 1) return true;
             }
+            return false;
         }
 
-        let correctDist = hitDist * Math.cos(rayAngle-viewAngle);
-        if(correctDist<0.01) correctDist=0.01;
-        wallDepth[screenX] = correctDist;
-        let lineHeight = 300.0 / correctDist;
-        if(lineHeight>300) lineHeight=300;
+        // ---------- 主循环 ----------
+        function loop() {
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, 800, 600);
 
-        const ceilR = 68, ceilG = 62, ceilB = 42;
-        ctx.fillStyle = `rgb(${ceilR},${ceilG},${ceilB})`;
-        ctx.fillRect(screenX, 0, 1, 300 - lineHeight);
+            // 射线投射
+            let wallDepth = new Array(800).fill(9999);
+            for (let screenX = 0; screenX < 800; screenX++) {
+                let rayAngle = viewAngle - FOV / 2 + screenX / 800 * FOV;
+                let rx = playerX,
+                    ry = playerY;
+                let dirX = Math.cos(rayAngle),
+                    dirY = Math.sin(rayAngle);
+                let hitWall = false,
+                    wallSide = 0,
+                    hitDist = 0;
+                while (!hitWall && hitDist < MAX_RAY_DIST) {
+                    rx += dirX * rayStep;
+                    ry += dirY * rayStep;
+                    hitDist = Math.hypot(rx - playerX, ry - playerY);
+                    if (GetTile(rx, ry) === 1) {
+                        hitWall = true;
+                        let modX = rx % 1,
+                            modY = ry % 1;
+                        wallSide = (Math.abs(modX - 0.5) > Math.abs(modY - 0.5)) ? 0 : 1;
+                    }
+                }
+                let correctDist = hitDist * Math.cos(rayAngle - viewAngle);
+                if (correctDist < 0.01) correctDist = 0.01;
+                wallDepth[screenX] = correctDist;
+                let lineHeight = 300.0 / correctDist;
+                if (lineHeight > 300) lineHeight = 300;
 
-        const floorR = 42, floorG = 38, floorB = 28;
-        ctx.fillStyle = `rgb(${floorR},${floorG},${floorB})`;
-        ctx.fillRect(screenX, 300 + lineHeight, 1, 300 - lineHeight);
+                ctx.fillStyle = `rgb(68,62,42)`;
+                ctx.fillRect(screenX, 0, 1, 300 - lineHeight);
+                ctx.fillStyle = `rgb(42,38,28)`;
+                ctx.fillRect(screenX, 300 + lineHeight, 1, 300 - lineHeight);
 
-        let baseR = 172;
-        let baseG = 148;
-        let baseB = 84;
+                let baseR = 172,
+                    baseG = 148,
+                    baseB = 84;
+                let shade = Math.max(0.12, 1.0 - correctDist * 0.07);
+                let r, g, b;
+                if (wallSide === 0) {
+                    r = Math.floor(baseR * shade);
+                    g = Math.floor(baseG * shade);
+                    b = Math.floor(baseB * shade);
+                } else {
+                    r = Math.floor(baseR * shade * 0.62);
+                    g = Math.floor(baseG * shade * 0.62);
+                    b = Math.floor(baseB * shade * 0.62);
+                }
+                ctx.strokeStyle = `rgb(${r},${g},${b})`;
+                ctx.beginPath();
+                ctx.moveTo(screenX, 300 - lineHeight);
+                ctx.lineTo(screenX, 300 + lineHeight);
+                ctx.stroke();
+            }
 
-        let shade = Math.max(0.12, 1.0 - correctDist * 0.07);
-        let r,g,b;
-        if(wallSide===0){
-            r = Math.floor(baseR * shade);
-            g = Math.floor(baseG * shade);
-            b = Math.floor(baseB * shade);
-        }else{
-            r = Math.floor(baseR * shade * 0.62);
-            g = Math.floor(baseG * shade * 0.62);
-            b = Math.floor(baseB * shade * 0.62);
+            // 更新怪物（未死亡且未胜利）
+            if (!isDead && !win) {
+                UpdateMonsters();
+            }
+
+            // ---------- 出口逻辑 ----------
+            if (!win && !isDead) {
+                // 计算存活时间
+                let elapsed = Date.now() - gameStartTime;
+                if (!exitVisible && elapsed >= EXIT_DELAY) {
+                    // 尝试生成出口
+                    if (generateExit()) {
+                        exitVisible = true;
+                    } else {
+                        // 如果生成失败（极少情况），再延迟几秒重试
+                        gameStartTime = Date.now() - EXIT_DELAY + 5000; // 5秒后重试
+                    }
+                }
+            }
+
+            // 绘制出口（如果可见）
+            if (exitVisible && !win) {
+                let dx = exitX - playerX;
+                let dy = exitY - playerY;
+                let dist = Math.hypot(dx, dy);
+                if (dist < 15) {
+                    let angle = Math.atan2(dy, dx);
+                    let diff = angle - viewAngle;
+                    while (diff > PI) diff -= 2 * PI;
+                    while (diff < -PI) diff += 2 * PI;
+                    if (Math.abs(diff) < FOV / 2 + 0.15) {
+                        let screenX = 400 + (diff / FOV) * 400;
+                        if (screenX >= 0 && screenX < 800) {
+                            let correctDist = dist * Math.cos(diff);
+                            if (correctDist > 0.1 && correctDist < wallDepth[Math.floor(screenX)] - 0.1) {
+                                let height = 300 / correctDist * 0.4;
+                                let top = 300 - height;
+                                let bottom = 300 + height;
+                                let width = height * 0.7;
+                                let cx = screenX;
+                                let pulse = 0.6 + 0.4 * Math.sin(Date.now() / 300);
+                                let alpha = 0.8 + 0.2 * pulse;
+                                ctx.fillStyle = `rgba(0, 255, 100, ${alpha})`;
+                                ctx.shadowColor = '#0f0';
+                                ctx.shadowBlur = 20;
+                                ctx.beginPath();
+                                ctx.arc(cx, 300, width / 2, 0, 2 * PI);
+                                ctx.fill();
+                                ctx.shadowBlur = 0;
+                                ctx.strokeStyle = '#0f0';
+                                ctx.lineWidth = 2;
+                                ctx.stroke();
+                                ctx.fillStyle = '#fff';
+                                ctx.font = '12px Arial';
+                                ctx.textAlign = 'center';
+                                ctx.fillText('出口', cx, 300 - height - 10);
+                                ctx.textAlign = 'left';
+                            }
+                        }
+                    }
+                }
+            }
+
+            // 渲染怪物
+            for (let m of monsters) {
+                let dx = m.x - playerX;
+                let dy = m.y - playerY;
+                let monsterDist = Math.hypot(dx, dy);
+                if (monsterDist < 0.1) continue;
+                let monsterAngle = Math.atan2(dy, dx);
+                let angleDiff = monsterAngle - viewAngle;
+                while (angleDiff > PI) angleDiff -= 2 * PI;
+                while (angleDiff < -PI) angleDiff += 2 * PI;
+                if (Math.abs(angleDiff) > FOV / 2 + 0.1) continue;
+                if (IsBlocked(playerX, playerY, m.x, m.y)) continue;
+                let screenX = 400 + (angleDiff / FOV) * 400;
+                let correctMDist = monsterDist * Math.cos(angleDiff);
+                let monsterHeight = 300 / correctMDist * m.size;
+                let topY = 300 - monsterHeight;
+                let botY = 300 + monsterHeight;
+                let width = monsterHeight * 0.7;
+                let cx = screenX;
+                let cy = (topY + botY) / 2;
+                let col = Math.floor(screenX);
+                if (col >= 0 && col < 800 && wallDepth[col] < correctMDist) continue;
+                ctx.fillStyle = "#000";
+                ctx.fillRect(cx - width / 2, topY, width, botY - topY);
+                ctx.strokeStyle = "#fff";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(cx - width / 2, topY, width, botY - topY);
+                ctx.lineWidth = 1;
+                let eyeW = width * 0.18,
+                    eyeH = monsterHeight * 0.22;
+                let eyeY = cy - monsterHeight * 0.12;
+                ctx.fillStyle = "#fff";
+                ctx.fillRect(cx - width * 0.28, eyeY, eyeW, eyeH);
+                ctx.fillRect(cx + width * 0.10, eyeY, eyeW, eyeH);
+                ctx.beginPath();
+                ctx.moveTo(cx - width * 0.35, cy + monsterHeight * 0.15);
+                ctx.lineTo(cx - width * 0.22, cy + monsterHeight * 0.05);
+                ctx.lineTo(cx - width * 0.08, cy + monsterHeight * 0.18);
+                ctx.lineTo(cx + width * 0.06, cy + monsterHeight * 0.04);
+                ctx.lineTo(cx + width * 0.20, cy + monsterHeight * 0.16);
+                ctx.lineTo(cx + width * 0.33, cy + monsterHeight * 0.06);
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = "#fff";
+                ctx.stroke();
+            }
+
+            // UI 信息
+            ctx.fillStyle = "#ff3333";
+            ctx.font = "bold 20px Arial";
+            ctx.fillText("HP: " + playerHP, 20, 30);
+            ctx.fillStyle = "#ffaa00";
+            ctx.fillText("怪物: " + monsters.length, 20, 55);
+
+            // 倒计时或出口提示
+            if (!win && !isDead) {
+                if (!exitVisible) {
+                    let elapsed = Date.now() - gameStartTime;
+                    let remain = Math.max(0, Math.ceil((EXIT_DELAY - elapsed) / 1000));
+                    ctx.fillStyle = "#88ddff";
+                    ctx.fillText(`出口剩余 ${remain} 秒`, 20, 80);
+                } else {
+                    ctx.fillStyle = "#00ff88";
+                    ctx.fillText("出口已出现！", 20, 80);
+                }
+            }
+
+            // 死亡遮罩
+            if (isDead) {
+                let passed = Date.now() - deathTimer;
+                let remain = Math.max(0, Math.ceil((respawnWaitTime - passed) / 1000));
+                ctx.fillStyle = "rgba(18,0,0,0.8)";
+                ctx.fillRect(0, 0, 800, 600);
+                ctx.fillStyle = "#bb0000";
+                ctx.font = "bold 60px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("您已死亡", 400, 260);
+                ctx.font = "24px Arial";
+                if (remain > 0) {
+                    ctx.fillStyle = "#dd3333";
+                    ctx.fillText(`等待复活：${remain}秒`, 400, 310);
+                } else {
+                    ctx.fillStyle = "#ff5555";
+                    ctx.fillText("按下空格键重新开始", 400, 310);
+                }
+                ctx.textAlign = "left";
+            }
+
+            // 胜利画面
+            if (win) {
+                ctx.fillStyle = "rgba(0, 40, 0, 0.8)";
+                ctx.fillRect(0, 0, 800, 600);
+                ctx.fillStyle = "#ffd700";
+                ctx.font = "bold 70px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("🎉 恭喜通关！", 400, 280);
+                ctx.font = "30px Arial";
+                ctx.fillStyle = "#aaffaa";
+                ctx.fillText("你成功逃出了迷宫！", 400, 350);
+                ctx.fillStyle = "#cccccc";
+                ctx.font = "20px Arial";
+                ctx.fillText("按 R 键重新开始", 400, 420);
+                ctx.textAlign = "left";
+            }
+
+            // ---------- 玩家移动与胜利检测 ----------
+            if (!isDead && !win) {
+                let speedMult = key["SHIFT"] ? runMulti : 1.0;
+                let forwardX = Math.cos(viewAngle) * moveSpeed * speedMult;
+                let forwardY = Math.sin(viewAngle) * moveSpeed * speedMult;
+                let rightX = Math.cos(viewAngle + PI / 2) * moveSpeed * speedMult;
+                let rightY = Math.sin(viewAngle + PI / 2) * moveSpeed * speedMult;
+
+                if (key["W"]) {
+                    if (CanMove(playerX + forwardX, playerY)) playerX += forwardX;
+                    if (CanMove(playerX, playerY + forwardY)) playerY += forwardY;
+                }
+                if (key["S"]) {
+                    if (CanMove(playerX - forwardX, playerY)) playerX -= forwardX;
+                    if (CanMove(playerX, playerY - forwardY)) playerY -= forwardY;
+                }
+                if (key["A"]) {
+                    if (CanMove(playerX - rightX, playerY)) playerX -= rightX;
+                    if (CanMove(playerX, playerY - rightY)) playerY -= rightY;
+                }
+                if (key["D"]) {
+                    if (CanMove(playerX + rightX, playerY)) playerX += rightX;
+                    if (CanMove(playerX, playerY + rightY)) playerY += rightY;
+                }
+                if (key["Q"]) viewAngle -= rotateSpeed;
+                if (key["E"]) viewAngle += rotateSpeed;
+
+                // 检测是否到达出口（仅当出口可见）
+                if (exitVisible) {
+                    let distToExit = Math.hypot(playerX - exitX, playerY - exitY);
+                    if (distToExit < 0.6) {
+                        win = true;
+                    }
+                }
+            }
+
+            requestAnimationFrame(loop);
         }
-        ctx.strokeStyle=`rgb(${r},${g},${b})`;
-        ctx.beginPath();
-        ctx.moveTo(screenX, 300-lineHeight);
-        ctx.lineTo(screenX, 300+lineHeight);
-        ctx.stroke();
-    }
 
-    if(!isDead){
-        UpdateMonsters();
-    }
-
-    //渲染怪物
-    for(let m of monsters){
-        let dx = m.x - playerX;
-        let dy = m.y - playerY;
-        let monsterDist = Math.hypot(dx, dy);
-        if(monsterDist < 0.1) continue;
-
-        let monsterAngle = Math.atan2(dy, dx);
-        let angleDiff = monsterAngle - viewAngle;
-        while(angleDiff > PI) angleDiff -= 2*PI;
-        while(angleDiff < -PI) angleDiff += 2*PI;
-
-        if(Math.abs(angleDiff) > FOV/2 + 0.1) continue;
-        if(IsBlocked(playerX, playerY, m.x, m.y)) continue;
-
-        let screenX = 400 + (angleDiff / FOV) * 400;
-        let correctMDist = monsterDist * Math.cos(angleDiff);
-        let monsterHeight = 300 / correctMDist * m.size;
-        let topY = 300 - monsterHeight;
-        let botY = 300 + monsterHeight;
-        let width = monsterHeight * 0.7;
-        let cx = screenX;
-        let cy = (topY + botY) / 2;
-
-        let col = Math.floor(screenX);
-        if(col >=0 && col <800 && wallDepth[col] < correctMDist) continue;
-
-        ctx.fillStyle = "#000000";
-        ctx.fillRect(cx - width/2, topY, width, botY - topY);
-        ctx.strokeStyle="#ffffff";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(cx - width/2, topY, width, botY - topY);
-        ctx.lineWidth = 1;
-
-        let eyeW = width * 0.18;
-        let eyeH = monsterHeight * 0.22;
-        let eyeY = cy - monsterHeight * 0.12;
-        ctx.fillStyle="#fff";
-        ctx.fillRect(cx - width*0.28, eyeY, eyeW, eyeH);
-        ctx.fillRect(cx + width*0.10, eyeY, eyeW, eyeH);
-
-        ctx.beginPath();
-        ctx.moveTo(cx - width*0.35, cy + monsterHeight*0.15);
-        ctx.lineTo(cx - width*0.22, cy + monsterHeight*0.05);
-        ctx.lineTo(cx - width*0.08, cy + monsterHeight*0.18);
-        ctx.lineTo(cx + width*0.06, cy + monsterHeight*0.04);
-        ctx.lineTo(cx + width*0.20, cy + monsterHeight*0.16);
-        ctx.lineTo(cx + width*0.33, cy + monsterHeight*0.06);
-        ctx.lineWidth = 3;
-        ctx.strokeStyle="#ffffff";
-        ctx.stroke();
-    }
-
-    //UI
-    ctx.fillStyle="#ff3333";
-    ctx.font="bold 20px Arial";
-    ctx.fillText("HP: "+playerHP,20,30);
-    ctx.fillStyle="#ffaa00";
-    ctx.fillText("怪物数量: "+monsters.length,20,55);
-    ctx.fillStyle="#aaaaaa";
-    ctx.fillText(musicEnabled ? "音乐：开启(M关闭)" : "音乐：关闭(M开启)",20,80);
-
-    if(isDead){
-        let passed = Date.now() - deathTimer;
-        let remain = Math.max(0, Math.ceil((respawnWaitTime - passed)/1000));
-        ctx.fillStyle="rgba(18,0,0,0.8)";
-        ctx.fillRect(0,0,800,600);
-
-        ctx.fillStyle="#bb0000";
-        ctx.font="bold 60px Arial";
-        ctx.textAlign="center";
-        ctx.fillText("您已死亡",400,260);
-
-        ctx.font="24px Arial";
-        if(remain>0){
-            ctx.fillStyle="#dd3333";
-            ctx.fillText(`等待复活：${remain}秒`,400,310);
-            ctx.fillText(`注意四周的危险`,400,350);
-        }else{
-            ctx.fillStyle="#ff5555";
-            ctx.fillText("按下空格键重新开始游戏",400,310);
-            ctx.fillText(`永远别想从这里出去——The lost`,400,350);
-        }
-        ctx.textAlign="left";
-    }
-
-    //玩家移动
-    if(!isDead){
-        let speedMult = key["SHIFT"] ? runMulti : 1.0;
-        let forwardX = Math.cos(viewAngle)*moveSpeed * speedMult;
-        let forwardY = Math.sin(viewAngle)*moveSpeed * speedMult;
-        let rightX = Math.cos(viewAngle+PI/2)*moveSpeed * speedMult;
-        let rightY = Math.sin(viewAngle+PI/2)*moveSpeed * speedMult;
-
-        if(key["W"]){
-            if(CanMove(playerX+forwardX, playerY)) playerX+=forwardX;
-            if(CanMove(playerX, playerY+forwardY)) playerY+=forwardY;
-        }
-        if(key["S"]){
-            if(CanMove(playerX-forwardX, playerY)) playerX-=forwardX;
-            if(CanMove(playerX, playerY-forwardY)) playerY-=forwardY;
-        }
-        if(key["A"]){
-            if(CanMove(playerX-rightX, playerY)) playerX-=rightX;
-            if(CanMove(playerX, playerY-rightY)) playerY-=rightY;
-        }
-        if(key["D"]){
-            if(CanMove(playerX+rightX, playerY)) playerX+=rightX;
-            if(CanMove(playerX, playerY+rightY)) playerY+=rightY;
-        }
-        if(key["Q"]) viewAngle -= rotateSpeed;
-        if(key["E"]) viewAngle += rotateSpeed;
-    }
-
-    requestAnimationFrame(loop);
-}
-loop();
-</script>
+        // 启动游戏，初始化计时
+        resetExit();
+        loop();
+    </script>
 </body>
 </html>
