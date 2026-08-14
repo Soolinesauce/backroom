@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>3D迷宫 V1.12</title>
+    <title>3D迷宫 V1.13</title>
     <style>
         body {
             background: #0a0a0a;
@@ -26,7 +26,7 @@
 <body>
     <div>
         <canvas id="game" width="800" height="600"></canvas>
-        <div class="info">WASD移动 Q/E旋转 Shift奔跑 |Soolinesauce出品|yyishappy14提供技术支持</div>
+        <div class="info">WASD移动 Q/E旋转 Shift奔跑 | Sooline sauce出品|yyishappy14提供技术支持</div>
     </div>
 
     <script>
@@ -34,7 +34,7 @@
         const ctx = canvas.getContext("2d");
         const PI = Math.PI;
 
-        // ---------- 区块系统（同前） ----------
+        // ---------- 区块系统 ----------
         const CHUNK_SIZE = 32;
         const chunkTemplates = [
             // 模板0（原版迷宫）
@@ -72,7 +72,7 @@
                 [1, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 1, 1, 1, 0, 1, 0, 1],
                 [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
             ],
-            // 模板1（可省略，保留一个占位）
+            // 模板1（占位）
             [
                 [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
                 [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -154,24 +154,21 @@
         const ACCEL_RANGE = 30;
 
         // ---------- 出口延迟机制 ----------
-        const EXIT_DELAY = 250000; // 2500秒
+        const EXIT_DELAY = 250000;
         let exitVisible = false;
         let exitX = 0,
             exitY = 0;
-        let gameStartTime = 0; // 用于计时（毫秒）
+        let gameStartTime = 0;
 
-        // 生成出口（随机位置，远离玩家至少5格）
         function generateExit() {
             let attempts = 0;
             const maxTry = 2000;
             while (attempts < maxTry) {
-                // 在初始区块 (0,0) 范围内随机，但也可以跨区块，为了简单保持在本区块
                 let tx = 2 + Math.floor(Math.random() * (CHUNK_SIZE - 4));
                 let ty = 2 + Math.floor(Math.random() * (CHUNK_SIZE - 4));
                 if (GetTile(tx, ty) === 0) {
                     let ex = tx + 0.5;
                     let ey = ty + 0.5;
-                    // 距离玩家至少 30 格
                     if (Math.hypot(ex - playerX, ey - playerY) > 30) {
                         exitX = ex;
                         exitY = ey;
@@ -180,7 +177,6 @@
                 }
                 attempts++;
             }
-            // 保底：在玩家周围 8~15 格找空地
             for (let r = 8; r < 20; r++) {
                 for (let angle = 0; angle < 2 * PI; angle += 0.3) {
                     let ex = playerX + r * Math.cos(angle);
@@ -195,13 +191,11 @@
             return false;
         }
 
-        // 重置出口状态
         function resetExit() {
             exitVisible = false;
             gameStartTime = Date.now();
         }
 
-        // 随机生成怪物（同前）
         function SpawnRandomMonster() {
             let attempts = 0;
             const maxTry = 800;
@@ -226,7 +220,7 @@
             }
         }
 
-        // 初始化怪物
+        // 初始生成5只怪物
         for (let i = 0; i < 5; i++) SpawnRandomMonster();
 
         // 按键
@@ -243,6 +237,7 @@
         });
         document.addEventListener("keyup", e => { key[e.key.toUpperCase()] = false; });
 
+        // ---------- 核心修改：死亡复活只增加 1 只怪物 ----------
         function respawnPlayer() {
             playerX = 2.0;
             playerY = 2.0;
@@ -250,9 +245,12 @@
             playerHP = 100;
             isDead = false;
             win = false;
-            resetExit(); // 重置计时器，出口消失
-            // 补充怪物
-            while (monsters.length < MAX_MONSTER) SpawnRandomMonster();
+            resetExit();
+
+            // ★ 只增加 1 只怪物（若未达上限）
+            if (monsters.length < MAX_MONSTER) {
+                SpawnRandomMonster();
+            }
         }
 
         function resetGame() {
@@ -287,7 +285,6 @@
                             playerHP = 0;
                             isDead = true;
                             deathTimer = Date.now();
-                            // 死亡时隐藏出口并重置计时
                             exitVisible = false;
                         }
                     }
@@ -381,27 +378,24 @@
                 ctx.stroke();
             }
 
-            // 更新怪物（未死亡且未胜利）
+            // 更新怪物
             if (!isDead && !win) {
                 UpdateMonsters();
             }
 
-            // ---------- 出口逻辑 ----------
+            // 出口逻辑
             if (!win && !isDead) {
-                // 计算存活时间
                 let elapsed = Date.now() - gameStartTime;
                 if (!exitVisible && elapsed >= EXIT_DELAY) {
-                    // 尝试生成出口
                     if (generateExit()) {
                         exitVisible = true;
                     } else {
-                        // 如果生成失败（极少情况），再延迟几秒重试
-                        gameStartTime = Date.now() - EXIT_DELAY + 5000; // 5秒后重试
+                        gameStartTime = Date.now() - EXIT_DELAY + 5000;
                     }
                 }
             }
 
-            // 绘制出口（如果可见）
+            // 绘制出口
             if (exitVisible && !win) {
                 let dx = exitX - playerX;
                 let dy = exitY - playerY;
@@ -497,7 +491,6 @@
             ctx.fillStyle = "#ffaa00";
             ctx.fillText("怪物: " + monsters.length, 20, 55);
 
-            // 倒计时或出口提示
             if (!win && !isDead) {
                 if (!exitVisible) {
                     let elapsed = Date.now() - gameStartTime;
@@ -538,7 +531,7 @@
                 ctx.fillStyle = "#ffd700";
                 ctx.font = "bold 70px Arial";
                 ctx.textAlign = "center";
-                ctx.fillText("🎉 恭喜通关！", 400, 280);
+                ctx.fillText(" 恭喜通关！", 400, 280);
                 ctx.font = "30px Arial";
                 ctx.fillStyle = "#aaffaa";
                 ctx.fillText("你成功逃出了迷宫！", 400, 350);
@@ -548,7 +541,7 @@
                 ctx.textAlign = "left";
             }
 
-            // ---------- 玩家移动与胜利检测 ----------
+            // 玩家移动与胜利检测
             if (!isDead && !win) {
                 let speedMult = key["SHIFT"] ? runMulti : 1.0;
                 let forwardX = Math.cos(viewAngle) * moveSpeed * speedMult;
@@ -575,7 +568,6 @@
                 if (key["Q"]) viewAngle -= rotateSpeed;
                 if (key["E"]) viewAngle += rotateSpeed;
 
-                // 检测是否到达出口（仅当出口可见）
                 if (exitVisible) {
                     let distToExit = Math.hypot(playerX - exitX, playerY - exitY);
                     if (distToExit < 0.6) {
@@ -587,7 +579,7 @@
             requestAnimationFrame(loop);
         }
 
-        // 启动游戏，初始化计时
+        // 启动游戏
         resetExit();
         loop();
     </script>
