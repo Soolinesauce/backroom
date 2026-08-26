@@ -2,8 +2,7 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>3D迷宫 V1.15</title>
-    <script defer src="https://analytics.digitalplat.org/static/analytics.js" data-property="dpa_tHQxZRMcL8ulJcMcCCcWC2ZauOHWkUQ"></script>
+    <title>Backroom V1.13</title>
     <style>
         body {
             background: #0a0a0a;
@@ -27,7 +26,7 @@
 <body>
     <div>
         <canvas id="game" width="800" height="600"></canvas>
-        <div class="info">WASD移动 Q/E旋转 Shift奔跑 | Sooline sauce出品|yyishappy14提供技术支持</div>
+        <div class="info">WASD移动 Q/E旋转 Shift奔跑 | Sooline sauce出品</div>
     </div>
 
     <script>
@@ -35,10 +34,10 @@
         const ctx = canvas.getContext("2d");
         const PI = Math.PI;
 
-        // ---------- 区块系统 ----------
+        // 区块系统 
         const CHUNK_SIZE = 32;
         const chunkTemplates = [
-            // 模板0（原版迷宫）
+            // 模板0
             [
                 [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
                 [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
@@ -127,7 +126,7 @@
             return chunkTemplates[templateId][localY][localX];
         }
 
-        // ---------- 玩家 ----------
+        // 
         let playerX = 2.0;
         let playerY = 2.0;
         let viewAngle = 0.0;
@@ -154,7 +153,7 @@
         const MONSTER_MAX_SPEED = 0.045;
         const ACCEL_RANGE = 30;
 
-        // ---------- 出口延迟机制 ----------
+        // 
         const EXIT_DELAY = 250000;
         let exitVisible = false;
         let exitX = 0,
@@ -238,7 +237,7 @@
         });
         document.addEventListener("keyup", e => { key[e.key.toUpperCase()] = false; });
 
-        // ---------- 核心修改：死亡复活只增加 1 只怪物 ----------
+        //
         function respawnPlayer() {
             playerX = 2.0;
             playerY = 2.0;
@@ -248,7 +247,7 @@
             win = false;
             resetExit();
 
-            // ★ 只增加 1 只怪物（若未达上限）
+            // 只增加 1 只怪物（若未达上限）
             if (monsters.length < MAX_MONSTER) {
                 SpawnRandomMonster();
             }
@@ -320,7 +319,7 @@
             return false;
         }
 
-        // ---------- 主循环 ----------
+        //主循环
         function loop() {
             ctx.fillStyle = "#000";
             ctx.fillRect(0, 0, 800, 600);
@@ -532,7 +531,7 @@
                 ctx.fillStyle = "#ffd700";
                 ctx.font = "bold 70px Arial";
                 ctx.textAlign = "center";
-                ctx.fillText(" 恭喜通关！", 400, 280);
+                ctx.fillText("", 400, 280);
                 ctx.font = "30px Arial";
                 ctx.fillStyle = "#aaffaa";
                 ctx.fillText("你成功逃出了后室！", 400, 350);
