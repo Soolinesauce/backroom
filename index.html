@@ -28,13 +28,11 @@
         <canvas id="game" width="800" height="600"></canvas>
         <div class="info">WASD移动 Q/E旋转 Shift奔跑 | Sooline sauce出品</div>
     </div>
-
     <script>
         const canvas = document.getElementById("game");
         const ctx = canvas.getContext("2d");
         const PI = Math.PI;
-
-        // 区块系统 
+        // 区块系统
         const CHUNK_SIZE = 32;
         const chunkTemplates = [
             // 模板0
@@ -108,13 +106,11 @@
                 [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
             ]
         ];
-
         function GetChunkTemplateIndex(chunkX, chunkY) {
             let hash = chunkX * 7919 + chunkY * 6271;
             hash = Math.abs(hash);
             return hash % chunkTemplates.length;
         }
-
         function GetTile(x, y) {
             let tileX = Math.floor(x);
             let tileY = Math.floor(y);
@@ -125,8 +121,7 @@
             let templateId = GetChunkTemplateIndex(chunkX, chunkY);
             return chunkTemplates[templateId][localY][localX];
         }
-
-        // 
+        //
         let playerX = 2.0;
         let playerY = 2.0;
         let viewAngle = 0.0;
@@ -136,15 +131,12 @@
         const rotateSpeed = 0.04;
         const rayStep = 0.02;
         const MAX_RAY_DIST = 24;
-
         let playerHP = 100;
         const monsterDamage = 50;
         let isDead = false;
         let deathTimer = 0;
         const respawnWaitTime = 15000;
-
         let win = false;
-
         // 怪物系统
         const monsters = [];
         const MAX_MONSTER = 25;
@@ -152,14 +144,16 @@
         const MONSTER_BASE_SPEED = 0.018;
         const MONSTER_MAX_SPEED = 0.045;
         const ACCEL_RANGE = 30;
-
-        // 
+        // 帧率统计
+        let lastTime = performance.now();
+        let frameCount = 0;
+        let fps = 0;
+        //
         const EXIT_DELAY = 250000;
         let exitVisible = false;
         let exitX = 0,
             exitY = 0;
         let gameStartTime = 0;
-
         function generateExit() {
             let attempts = 0;
             const maxTry = 2000;
@@ -190,12 +184,10 @@
             }
             return false;
         }
-
         function resetExit() {
             exitVisible = false;
             gameStartTime = Date.now();
         }
-
         function SpawnRandomMonster() {
             let attempts = 0;
             const maxTry = 800;
@@ -219,10 +211,8 @@
                 attempts++;
             }
         }
-
         // 初始生成5只怪物
         for (let i = 0; i < 5; i++) SpawnRandomMonster();
-
         // 按键
         const key = {};
         document.addEventListener("keydown", e => {
@@ -236,7 +226,6 @@
             }
         });
         document.addEventListener("keyup", e => { key[e.key.toUpperCase()] = false; });
-
         //
         function respawnPlayer() {
             playerX = 2.0;
@@ -246,13 +235,11 @@
             isDead = false;
             win = false;
             resetExit();
-
             // 只增加 1 只怪物（若未达上限）
             if (monsters.length < MAX_MONSTER) {
                 SpawnRandomMonster();
             }
         }
-
         function resetGame() {
             win = false;
             playerHP = 100;
@@ -264,11 +251,9 @@
             for (let i = 0; i < 5; i++) SpawnRandomMonster();
             resetExit();
         }
-
         function CanMove(x, y) {
             return GetTile(x, y) === 0;
         }
-
         // 怪物AI
         function UpdateMonsters() {
             if (win) return;
@@ -303,7 +288,6 @@
                 if (canX || canY) m.moving = true;
             }
         }
-
         function IsBlocked(x1, y1, x2, y2) {
             let dist = Math.hypot(x2 - x1, y2 - y1);
             if (dist > 20) return true;
@@ -318,12 +302,19 @@
             }
             return false;
         }
-
         //主循环
-        function loop() {
+        function loop(timeStamp) {
+            //计算帧率
+            frameCount++;
+            const now = performance.now();
+            if(now - lastTime >= 1000){
+                fps = frameCount;
+                frameCount = 0;
+                lastTime = now;
+            }
+
             ctx.fillStyle = "#000";
             ctx.fillRect(0, 0, 800, 600);
-
             // 射线投射
             let wallDepth = new Array(800).fill(9999);
             for (let screenX = 0; screenX < 800; screenX++) {
@@ -351,12 +342,10 @@
                 wallDepth[screenX] = correctDist;
                 let lineHeight = 300.0 / correctDist;
                 if (lineHeight > 300) lineHeight = 300;
-
                 ctx.fillStyle = `rgb(68,62,42)`;
                 ctx.fillRect(screenX, 0, 1, 300 - lineHeight);
                 ctx.fillStyle = `rgb(42,38,28)`;
                 ctx.fillRect(screenX, 300 + lineHeight, 1, 300 - lineHeight);
-
                 let baseR = 172,
                     baseG = 148,
                     baseB = 84;
@@ -377,12 +366,10 @@
                 ctx.lineTo(screenX, 300 + lineHeight);
                 ctx.stroke();
             }
-
             // 更新怪物
             if (!isDead && !win) {
                 UpdateMonsters();
             }
-
             // 出口逻辑
             if (!win && !isDead) {
                 let elapsed = Date.now() - gameStartTime;
@@ -394,7 +381,6 @@
                     }
                 }
             }
-
             // 绘制出口
             if (exitVisible && !win) {
                 let dx = exitX - playerX;
@@ -437,7 +423,6 @@
                     }
                 }
             }
-
             // 渲染怪物
             for (let m of monsters) {
                 let dx = m.x - playerX;
@@ -483,14 +468,14 @@
                 ctx.strokeStyle = "#fff";
                 ctx.stroke();
             }
-
             // UI 信息
             ctx.fillStyle = "#ff3333";
             ctx.font = "bold 20px Arial";
             ctx.fillText("HP: " + playerHP, 20, 30);
             ctx.fillStyle = "#ffaa00";
             ctx.fillText("怪物: " + monsters.length, 20, 55);
-
+            ctx.fillStyle="#44ddff";
+            ctx.fillText("FPS: "+fps,20,105);
             if (!win && !isDead) {
                 if (!exitVisible) {
                     let elapsed = Date.now() - gameStartTime;
@@ -502,7 +487,6 @@
                     ctx.fillText("出口已出现！", 20, 80);
                 }
             }
-
             // 死亡遮罩
             if (isDead) {
                 let passed = Date.now() - deathTimer;
@@ -523,7 +507,6 @@
                 }
                 ctx.textAlign = "left";
             }
-
             // 胜利画面
             if (win) {
                 ctx.fillStyle = "rgba(0, 40, 0, 0.8)";
@@ -540,7 +523,6 @@
                 ctx.fillText("按 R 键重新开始", 400, 420);
                 ctx.textAlign = "left";
             }
-
             // 玩家移动与胜利检测
             if (!isDead && !win) {
                 let speedMult = key["SHIFT"] ? runMulti : 1.0;
@@ -548,7 +530,6 @@
                 let forwardY = Math.sin(viewAngle) * moveSpeed * speedMult;
                 let rightX = Math.cos(viewAngle + PI / 2) * moveSpeed * speedMult;
                 let rightY = Math.sin(viewAngle + PI / 2) * moveSpeed * speedMult;
-
                 if (key["W"]) {
                     if (CanMove(playerX + forwardX, playerY)) playerX += forwardX;
                     if (CanMove(playerX, playerY + forwardY)) playerY += forwardY;
@@ -567,7 +548,6 @@
                 }
                 if (key["Q"]) viewAngle -= rotateSpeed;
                 if (key["E"]) viewAngle += rotateSpeed;
-
                 if (exitVisible) {
                     let distToExit = Math.hypot(playerX - exitX, playerY - exitY);
                     if (distToExit < 0.6) {
@@ -575,13 +555,11 @@
                     }
                 }
             }
-
             requestAnimationFrame(loop);
         }
-
         // 启动游戏
         resetExit();
-        loop();
+        requestAnimationFrame(loop);
     </script>
 </body>
 </html>
